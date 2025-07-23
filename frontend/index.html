@@ -1,0 +1,814 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <!--<link rel="icon" href="/public/favicon.png" type="image/png">-->
+    <link rel="icon" href="/public/favicon.png" type="image/png" sizes="32x32"> 
+
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
+
+     <!-- Option 1: Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/js/bootstrap.bundle.min.js" integrity="sha384-gtEjrD/SeCtmISkJkNUaaKMoLD0//ElJ19smozuHV6z3Iehds+3Ulb9Bn9Plx0x4" crossorigin="anonymous"></script>
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
+    <link href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+
+
+    <!-- <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>  -->
+    <script src="https://cdn.tiny.cloud/1/0gp5cpoic46p9i6xowskavo19ugbv4rmp4hxtrnbja5ocz9r/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+    
+    <link rel="stylesheet" href="styles.css">
+    <script type="module" src="./js/main.js"></script>
+    
+
+   
+
+
+    <title>Centro Kinesis</title>
+</head>
+<body>
+
+<!-- DIV DE CARGA -->
+<div id="initial-loading-overlay" style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #fff; /* O tu color de fondo preferido para la carga */
+        z-index: 99999; /* Asegura que esté por encima de casi todo */
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        align-items: center;
+        font-family: Arial, sans-serif;
+        font-size: 1.2em;
+        color: #555;
+        opacity: 1; /* Asegura que sea visible al principio */
+        transition: opacity 0.5s ease-out; /* Para que se desvanezca suavemente */
+    ">
+        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+        <p class="mt-3">Cargando aplicación...</p>
+</div>
+
+<!-- DIV MENSAJES -->
+<div id="messageContainer" class="fixed-top container mt-3" style="z-index: 1050;"></div>
+
+<!-- MODAL CONFIRMACION -->
+<div class="modal fade" id="confirmModal" tabindex="-1" aria-labelledby="confirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white"> <h5 class="modal-title" id="confirmModalLabel">Confirmar Operación</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                ¿Está seguro que desea realizar esta acción?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmAction">Confirmar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DIV LOGIN -->
+<div id="divLogin" class="container content-section d-none my-5">
+    <div class="card p-4 mx-auto" style="max-width: 500px;"> <div class="text-center mb-4"> <img src="./assets/centroKinesis.png" alt="Centro Kinesis Logo" width="320.45" height="250" class="img-fluid">
+        </div>
+        <h2 class="mb-3 text-center">Iniciar Sesión</h2>
+        <form id="loginForm"> <div class="mb-3">
+                <label for="loginCedula" class="form-label">Cédula:</label>
+                <input type="text" class="form-control" id="loginCedula" required>
+            </div>
+            <div class="mb-3">
+                <label for="loginPassword" class="form-label">Contraseña:</label>
+                <div class="input-group">
+                    <input type="password" class="form-control" id="loginPassword" required>
+                    <button class="btn btn-outline-secondary" type="button" id="togglePassword">
+                        <i class="bi bi-eye"></i> </button>
+                </div>
+            </div>
+            <div class="mb-3 form-check">
+                <input type="checkbox" class="form-check-input" id="rememberMe">
+                <label class="form-check-label" for="rememberMe">Mantenerme conectado</label>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Entrar</button>
+            <div id="divLoginError" class="alert alert-danger mt-3 d-none"></div>
+        </form>
+    </div>
+</div>
+  
+<!-- DIV PRINCIPAL -->
+<div id="divPrincipal" >
+
+<!-- BARRA DE NAVEGACION -->
+<nav id ="navbar" class="navbar navbar-expand-md navbar-light fixed-top d-none " >
+  <div class="container-fluid">
+    
+    <a class="navbar-brand" href="#">
+    <img src="./assets/ruedaKinesis.png" alt="" width="130" height="60" class="d-inline-block align-text-top img-fluid">
+    </a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    
+    <div class="collapse navbar-collapse" id="navbarSupportedContent">
+      <ul class="navbar-nav me-auto mb-2 mb-lg-0"> 
+      
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Agenda
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" data-target="divAgenda">Agenda Clínica</a></li>
+            <li><a class="dropdown-item" href="#" data-target="divAgendaPersonal">Agenda Personal</a></li>
+          </ul>
+        </li>
+
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-target="divPaciente">Pacientes</a>
+        </li>
+          <li id="liFichaMedica" class="nav-item" hidden>
+          <a class="nav-link" href="#" data-target="divFichaMedica">Ficha medica</a>
+        </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-target="divNombreDiagnostico">Diagnosticos</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+
+<!-- DIV AGENDA -->
+<div id="divAgenda" class="container agenda-table d-none">
+    <h2 class="mb-4">Agenda Semanal</h2>
+    <div class="table-responsive">
+    <table id="tablaAgendaSemanal" class="table table-bordered">
+      <thead>
+        <tr>
+          <th>Horario</th>
+          <th>Lunes</th>
+          <th>Martes</th>
+          <th>Miércoles</th>
+          <th>Jueves</th>
+          <th>Viernes</th>
+          <th>Sábado</th>
+          <th>Domingo</th>
+        </tr>
+      </thead>
+        <tbody>
+        </tbody>
+    </table>
+    </div>
+    <div class="mt-3">
+        <button id="btnAgregarHorario" class="btn btn-info me-2" data-bs-toggle="modal" data-bs-target="#addHorarioModal">Agregar horario</button>
+    </div>
+</div> 
+
+
+<!-- AGENDA PERSONAL -->
+<div class="container mt-4 d-none" id="divAgendaPersonal">
+    <h2>Agenda Personal / Calendario</h2>
+
+    <div id="calendar" class="card p-3 shadow-sm"> 
+        <div class="calendar-header d-flex justify-content-between align-items-center mb-3">
+            <button id="prevMonthBtn" class="btn btn-outline-secondary">&lt; Mes Anterior</button>
+            <h4 id="currentMonthYear" class="mb-0"></h4>
+            <button id="nextMonthBtn" class="btn btn-outline-secondary">Mes Siguiente &gt;</button>
+        </div>
+
+        <div class="calendar-days-names d-flex text-center mb-2 fw-bold">
+            <div class="flex-fill">Lun</div>
+            <div class="flex-fill">Mar</div>
+            <div class="flex-fill">Mié</div>
+            <div class="flex-fill">Jue</div>
+            <div class="flex-fill">Vie</div>
+            <div class="flex-fill">Sáb</div>
+            <div class="flex-fill">Dom</div>
+        </div>
+
+        <div id="calendar-grid" class="calendar-grid">
+            </div>
+
+        <div id="calendar-loading-overlay" class="loading-overlay">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+            </div>
+            <p class="mt-2 text-primary">Cargando calendario...</p>
+        </div>
+    </div>
+</div>
+
+
+<!-- MODAL SESIONES EN UN DIA -->
+ <div class="modal fade" id="sesionDiaModal" tabindex="-1" aria-labelledby="sesionDiaModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="sesionDiaModalLabel">Sesiones del día</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Día:</strong> <span id="modalDiaSesion"></span></p>
+                
+                <div class="row mt-3">
+                    <div class="col-md-12"> <h6>Sesiones:</h6>
+                        <div class="table-responsive shadow-sm rounded border">
+                            <table class="table table-sm table-hover" id="modalTablaSesiones">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Hora Inicio</th>
+                                        <th>Hora Fin</th>
+                                        <th>Fisioterapeuta</th>
+                                        <th>Paciente</th> </tr>
+                                </thead>
+                                <tbody id="modalTablaSesionesBody">
+                                    </tbody>
+                            </table>
+                            <div id="noSesionesMensaje" class="p-3 text-center text-muted" style="display: none;">
+                                No hay sesiones programadas para este día.
+                            </div>
+                        </div>
+                        
+                        <div class="mt-3 d-flex gap-2 justify-content-end"> <button id="btnAgregarSesion" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#sessionDetailModal" >Agregar Sesión</button>
+                            <button id="btnModificarSesion" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#sessionDetailModal" disabled>Modificar Sesión</button>
+                            <button id="btnEliminarSesion" class="btn btn-danger" disabled>Eliminar Sesión</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DE AGREGAR SESION -->
+<div class="modal fade" id="sessionDetailModal" tabindex="-1" aria-labelledby="sessionDetailModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="sessionDetailModalLabel">Detalle de Sesión / Nueva Sesión</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="sessionForm">
+                        <div class="mb-3">
+                            <label for="sessionDate" class="form-label">Fecha:</label>
+                            <input type="date" class="form-control" id="sessionDate" required disabled>
+                        </div>
+                        <div class="mb-3">
+                            <label for="sessionStartTime" class="form-label">Hora de Inicio:</label>
+                            <input type="time" class="form-control" id="sessionStartTime" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="sessionEndTime" class="form-label">Hora de Fin:</label>
+                            <input type="time" class="form-control" id="sessionEndTime" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="selectFisiosSesion" class="form-label">Fisioterapeuta:</label>
+                            <select class="form-select" id="selectFisiosSesion">
+                                </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="selectedPacienteName" class="form-label">Paciente:</label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="selectedPacienteName" readonly placeholder="Ningún paciente seleccionado">
+                                    <button class="btn btn-outline-secondary" type="button" id="selectPacienteBtn" data-bs-toggle="modal" data-bs-target="#selectPacienteModalSesion">Seleccionar Paciente</button>
+                                    <input type="hidden" id="selectedPacienteId" disabled> </div>
+                                </div>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary" id="saveSessionBtn">Guardar Sesión</button>
+                        </div>
+                    </form>
+                </div>
+                
+            </div>
+</div>
+
+<!-- MODAL AGREGAR PACIENTE A SESION -->
+<div class="modal fade" id="selectPacienteModalSesion" tabindex="-1" aria-labelledby="selectPacienteModalLabelSesion" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="selectPacienteModalLabelSesion">Seleccionar Paciente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="filtrosPacienteSeleccionContainerSesion">
+                    <div class="row mb-3 align-items-end">
+                        <div class="col-md-4">
+                            <label for="selectDiagnosticosBuscarSeleccionSesion" class="form-label">Filtrar por diagnósticos:</label>
+                            <select id="selectDiagnosticosBuscarSeleccionSesion" class="form-select"></select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="inputBuscarNombreSeleccionSesion" class="form-label">Nombre:</label>
+                            <input type="text" id="inputBuscarNombreSeleccionSesion" class="form-control" placeholder="Buscar por nombre">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="inputBuscarCedulaSeleccionSesion" class="form-label">Cédula:</label>
+                            <input type="text" id="inputBuscarCedulaSeleccionSesion" class="form-control" placeholder="Buscar por cédula">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="selectActiveSeleccionSesion" class="form-label">Mostrar:</label>
+                            <select id="selectActiveSeleccionSesion" class="form-select"></select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="divTablaPacientesSeleccionSesion" class="table-scroll shadow-sm rounded border">
+                    <div id="tableLoadingOverlaySeleccionSesion" class="loading-overlay" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2 text-primary">Cargando pacientes...</p>
+                    </div>
+                    <table class="table table-sm table-hover" id="tablaPacientesSeleccionSesion">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Nombre y Apellido</th>
+                                <th scope="col">Cédula</th>
+                                <th scope="col">Diagnósticos</th>
+                                <th scope="col">Teléfono</th>
+                                <th scope="col">Gmail</th>
+                                <th scope="col">Activo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+
+                    <div class="d-flex justify-content-between align-items-center p-2 text-muted bg-light border-top">
+                        <div class="d-flex align-items-center">
+                            Total de pacientes: <strong id="contadorPacientesSeleccionSesion" class="ms-1">0</strong>
+                        </div>
+                        <nav aria-label="Navegación de pacientes">
+                            <ul class="pagination mb-0" id="paginationControlsSeleccionSesion"></ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="btnSeleccionarPacienteModalSesion" disabled>Agregar Paciente</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL AGREGAR HORARIO -->
+<div class="modal fade" id="addHorarioModal" tabindex="-1" aria-labelledby="addHorarioModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addHorarioModalLabel">Agregar Nuevo Horario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAddHorario">
+                    <div class="mb-3">
+                        <label for="selectAddDiaHorario" class="form-label">Día de la Semana</label>
+                        <select class="form-select" id="selectAddDiaHorario" required>
+                            <option value="">Selecciona un día</option>
+                            <option value="Lunes">Lunes</option>
+                            <option value="Martes">Martes</option>
+                            <option value="Miercoles">Miércoles</option>
+                            <option value="Jueves">Jueves</option>
+                            <option value="Viernes">Viernes</option>
+                            <option value="Sabado">Sábado</option>
+                        </select>
+                        <div class="invalid-feedback">
+                            Por favor, selecciona un día.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputAddHoraInicio" class="form-label">Hora de Inicio</label>
+                        <input type="time" class="form-control" id="inputAddHoraInicio" required>
+                        <div class="invalid-feedback">
+                            Por favor, ingresa la hora de inicio.
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputAddHoraFin" class="form-label">Hora de Fin</label>
+                        <input type="time" class="form-control" id="inputAddHoraFin" required>
+                        <div class="invalid-feedback">
+                            Por favor, ingresa la hora de fin.
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" form="formAddHorario" class="btn btn-primary" id="btnAddHorario">Guardar Horario</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL PARA AGREGAR/ELIMINAR PACIENTES AGREGAR/ELIMINAR FISIOS HORARIO -->
+<div class="modal fade" id="agendaDetailModal" tabindex="-1" aria-labelledby="agendaDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl"> <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="agendaDetailModalLabel">Detalles del Grupo</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p><strong>Horario:</strong> <span id="modalHorario"></span></p>
+                <p><strong>Día:</strong> <span id="modalDia"></span></p>
+                <p><strong>Cantidad de Pacientes:</strong> <span id="modalCantidad"></span></p>
+                
+                <div class="row mt-3">
+                    <div class="col-md-6">
+                        <h6>Pacientes:</h6>
+                        <ul id="modalIntegrantesList" class="list-group">
+                            </ul>
+                        <p id="noParticipantsMessage" class="text-muted d-none">No hay pacientes en este grupo.</p>
+                        
+                        <div class="mt-3 d-flex gap-2">
+                            <button id="btnAgregarPacienteHorario" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#selectPacienteModal">Agregar Paciente</button>
+                            <button id="btnEliminarPacienteHorario" class="btn btn-danger btn-sm" disabled>Eliminar Paciente</button>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Fisioterapeutas Asignados:</h6>
+                        <ul id="modalFisioterapeutasList" class="list-group">
+                            </ul>
+                        <p id="noFisioterapeutasMessage" class="text-muted d-none">No hay fisioterapeutas asignados a este grupo.</p>
+
+                        <div class="mt-3 d-flex gap-2">
+                            <button id="btnAgregarFisioterapeutaHorario" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalAgregarFisios">Agregar Fisioterapeuta</button>
+                            <button id="btnEliminarFisioterapeutaHorario" class="btn btn-secondary btn-sm" disabled>Eliminar Fisioterapeuta</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="btnEliminarHorario" class="btn btn-outline-danger btn-sm">Eliminar Horario</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL AGREGAR PACIENTE A GRUPO -->
+<div class="modal fade" id="selectPacienteModal" tabindex="-1" aria-labelledby="selectPacienteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="selectPacienteModalLabel">Seleccionar Paciente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="filtrosPacienteSeleccionContainer">
+                    <div class="row mb-3 align-items-end">
+                        <div class="col-md-4">
+                            <label for="selectDiagnosticosBuscarSeleccion" class="form-label">Filtrar por diagnósticos:</label>
+                            <select id="selectDiagnosticosBuscarSeleccion" class="form-select"></select>
+                        </div>
+                        <div class="col-md-4">
+                            <label for="inputBuscarNombreSeleccion" class="form-label">Nombre:</label>
+                            <input type="text" id="inputBuscarNombreSeleccion" class="form-control" placeholder="Buscar por nombre">
+                        </div>
+                        <div class="col-md-4">
+                            <label for="inputBuscarCedulaSeleccion" class="form-label">Cédula:</label>
+                            <input type="text" id="inputBuscarCedulaSeleccion" class="form-control" placeholder="Buscar por cédula">
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-md-4">
+                            <label for="selectActiveSeleccion" class="form-label">Mostrar:</label>
+                            <select id="selectActiveSeleccion" class="form-select"></select>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="divTablaPacientesSeleccion" class="table-scroll shadow-sm rounded border">
+                    <div id="tableLoadingOverlaySeleccion" class="loading-overlay" style="display: none;">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p class="mt-2 text-primary">Cargando pacientes...</p>
+                    </div>
+                    <table class="table table-sm table-hover" id="tablaPacientesSeleccion">
+                        <thead class="table-light">
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Nombre y Apellido</th>
+                                <th scope="col">Cédula</th>
+                                <th scope="col">Diagnósticos</th>
+                                <th scope="col">Teléfono</th>
+                                <th scope="col">Gmail</th>
+                                <th scope="col">Activo</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        </tbody>
+                    </table>
+
+                    <div class="d-flex justify-content-between align-items-center p-2 text-muted bg-light border-top">
+                        <div class="d-flex align-items-center">
+                            Total de pacientes: <strong id="contadorPacientesSeleccion" class="ms-1">0</strong>
+                        </div>
+                        <nav aria-label="Navegación de pacientes">
+                            <ul class="pagination mb-0" id="paginationControlsSeleccion"></ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="btnSeleccionarPacienteModal" disabled>Agregar Paciente</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL AGREGAR FISIOTERAPEUTA -->
+<div class="modal fade" id="modalAgregarFisios" tabindex="-1" aria-labelledby="modalAgregarFisiosLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAgregarFisiosLabel">Agregar Fisioterapeuta</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAgregarFisios">
+                    <div class="mb-3">
+                        <label for="selectFisios" class="form-label">Fisioterapeuta: </label>
+                        <select class = "form-control" id="selectFisios"></select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="btnAgregarFisios" type="submit" class="btn btn-success" >Agregar Fisioterapeuta</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DIV PACIENTES -->
+<div id="divPaciente" class="container d-none">
+    <div id="filtrosPacienteContainer">
+        <div class="row mb-3 align-items-end">
+            <div class="col-md-4">
+                <label for="selectDiagnosticosBuscar" class="form-label">Filtrar por diagnósticos:</label>
+                <select id="selectDiagnosticosBuscar" class="form-select"></select>
+            </div>
+            <div class="col-md-4">
+                <label for="inputBuscarNombre" class="form-label">Nombre:</label>
+                <input type="text" id="inputBuscarNombre" class="form-control" placeholder="Buscar por nombre">
+            </div>
+            <div class="col-md-4">
+                <label for="inputBuscarCedula" class="form-label">Cédula:</label>
+                <input type="text" id="inputBuscarCedula" class="form-control" placeholder="Buscar por cédula">
+            </div>
+        </div>
+
+    <div class="row mb-3">
+        <div class="col-md-4">
+            <label for="selectActive" class="form-label">Mostrar:</label>
+            <select id="selectActive" class="form-select"></select>
+        </div>
+        <div class="col-md-8 text-end">
+            <button id = "btnAgregarPaciente" data-bs-toggle="modal" 
+            data-bs-target="#modalAgregarPaciente" class="btn btn-primary mt-4"
+            data-mode="add">Agregar Nuevo Paciente</button>
+        </div>
+    </div>
+    </div>
+
+
+<div id="divTablaPacientes"class="table-scroll shadow-sm rounded border">
+    <div id="tableLoadingOverlay" class="loading-overlay" style="display: none;">
+        <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Cargando...</span>
+        </div>
+        <p class="mt-2 text-primary">Cargando pacientes...</p>
+    </div>
+        <table class="table table-sm table-hover" id="tablaPacientes">
+            <thead>
+                <tr>
+                    <th scope="col">#</th>
+                    <th scope="col">Nombre y Apellido</th>
+                    <th scope="col">Cédula</th>
+                    <th scope="col">Diagnósticos</th>
+                    <th scope="col">Telefono</th>
+                    <th scope="col">Gmail</th>
+                    <th scope="col">Activo</th>
+                    </tr>
+            </thead>
+            <tbody>
+            </tbody>
+        </table>
+        
+        <div class="d-flex justify-content-between align-items-center p-2 text-muted bg-light border-top">
+            <div class="d-flex align-items-center">
+                Total de pacientes: <strong id="contadorPacientes" class="ms-1">0</strong>
+            </div>
+            <nav aria-label="Navegación de pacientes">
+                <ul class="pagination mb-0" id="paginationControls"></ul>
+            </nav>
+        </div>
+</div>
+
+    <div class="mt-3">
+        <button id="btnVerFicha" class="btn btn-info me-2" disabled>Ver Ficha Médica</button>
+        <button id="btnModificarDatosPersonales" class="btn btn-warning me-2" data-bs-toggle="modal" 
+            data-bs-target="#modalAgregarPaciente" data-mode="edit" disabled>Modificar Datos Personales</button>
+        <button id="btnEliminarPaciente" class="btn btn-danger me-2" disabled>Eliminar Paciente</button>
+    </div>
+</div>
+
+<!-- MODAL AGREGAR PACIENTE -->
+<div class="modal fade" id="modalAgregarPaciente" tabindex="-1" aria-labelledby="modalAgregarPacienteLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAgregarPacienteLabel">Agregar Nuevo Paciente</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAgregarPaciente">
+                    <div class="mb-3">
+                        <label for="inputAgregarNombreApellido" class="form-label">Nombre y Apellido</label>
+                        <input type="text" class="form-control" id="inputAgregarNombreApellido" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputAgregarCedula" class="form-label">Cédula</label>
+                        <input type="text" class="form-control" id="inputAgregarCedula" placeholder="Ej: 12345678" minlength="8" maxlength="8" required>
+                        <div class="form-text">SIN PUNTOS NI GUIONES</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputAgregarFechaNacimiento" class="form-label">Fecha de Nacimiento</label>
+                        <input type="date" class="form-control" id="inputAgregarFechaNacimiento" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputAgregarTelefono" class="form-label">Telefono</label>
+                        <div class="input-group">
+                            <select class="form-select" id="selectCodigoPais" style="max-width: 200px;" required></select>
+                            <input type="tel" class="form-control" id="inputAgregarTelefono"
+                            pattern="[0-9]{6,12}"
+                            placeholder="Ej: 99123456"
+                            title="Ingresa solo los dígitos del número de teléfono local (6 a 12 dígitos)" required>
+                        </div>
+                        <div class="form-text">Ejemplo: +598 99123456</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputAgregarGmail" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="inputAgregarGmail">
+                        <div class="form-text">No es obligatorio</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="selectAgregarGenero" class="form-label">Género</label>
+                        <select class="form-select" id="selectAgregarGenero" required>
+                            <option value="" disabled selected>Selecciona...</option>
+                            <option value="M">Masculino</option>
+                            <option value="F">Femenino</option>
+                            <option value="O">Otro</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-success" id="btnGuardarPaciente">Guardar Paciente</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DIV FICHA MEDICA -->
+<div class="container mt-4 d-none" id="divFichaMedica">
+    <h2 class="mb-4">Ficha Médica</h2>
+
+    <div class="card mb-4" style="border-color: #8FBC8F;">
+        <div class="card-header text-white" style="background-color: #194e30;">
+            Información del Paciente
+        </div>
+        <div class="card-body">
+            <p><strong>NUMERO DE PACIENTE:</strong> <span id="fichaId"></span></p>
+            <p><strong>NOMBRE:</strong> <span id="fichaNombre"></span></p>
+            <p><strong>EDAD:</strong> <span id="fichaEdad"></span></p>
+            <p><strong>GÉNERO:</strong> <span id="fichaGenero"></span></p>
+            <p><strong>NRO DE TELÉFONO:</strong> <span id="fichaTelefono"></span></p>
+            <p><strong>GMAIL:</strong> <span id="fichaGmail"></span></p>
+            <p><strong>ACTIVO:</strong> <span id="fichaActivo"></span></p>
+            <p><strong>FECHA DE INSCRIPCIÓN:</strong> <span id="fichaFechaCreacion"></span></p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #194e30;">
+            Diagnósticos y Observaciones
+            <button class="btn btn-info diagnostico-btn" id="btnAgregarDiagnosticoPaciente" title="Agregar nuevo diagnóstico" data-bs-toggle="modal" data-bs-target="#modalAgregarDiagnosticoPaciente">Agregar diagnostico</button>
+        </div>
+        <div class="card-body">
+            <div id="diagnosticosContainer">    
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL AGREGAR DIAGNOSTICO A PACIENTE-->
+<div class="modal fade" id="modalAgregarDiagnosticoPaciente" tabindex="-1" aria-labelledby="modalAgregarDiagnosticoPacienteLabel">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAgregarDiagnosticoPacienteLabel">Agregar Nuevo Diagnostico</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAgregarDiagnosticoPaciente">
+                    <div class="mb-3">
+                        <label for="selectDiagnosticosPaciente" class="form-label">Diagnostico: </label>
+                        <select class = "form-control" id="selectDiagnosticosPaciente"></select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="btnAgregarDiagnosticoPaciente2" type="submit" class="btn btn-success me-2" >Agregar diagnostico al paciente</button>
+                <button type="submit" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalAgregarDiagnostico" data-mode="add">Crear nuevo diagnostico</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL AGREGAR DIAGNOSTICO -->
+<div class="modal fade" id="modalAgregarDiagnostico" tabindex="-1" aria-labelledby="modalAgregarDiagnosticoLabel">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalAgregarDiagnosticoLabel">Agregar Nuevo Diagnostico</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formAgregarDiagnostico">
+                    <div class="mb-3">
+                        <label for="inputNombreDiagnostico" class="form-label">Nombre </label>
+                        <input type="text" class="form-control" id="inputNombreDiagnostico" required min="2" max="99">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button id="btnGuardarDiagnostico" type="submit" class="btn btn-success">Agregar diagnostico</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- DIV NOMBRE DIAGNOSTICOS -->
+<div id="divNombreDiagnostico" class="container d-none mt-4">
+    <div id="filtrosDiagnosticoContainer"></div>
+    <div id="divTablaNombresDiagnosticos"class="table-scroll shadow-sm rounded border">
+        <div id="tableLoadingOverlay" class="loading-overlay" style="display: none;">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Cargando...</span>
+                    <p class="mt-2 text-primary">Cargando diagnosticos...</p>
+            </div>
+        </div>
+            <table class="table table-striped table-hover caption-top" id="tablaNombresDiagnosticos">
+                    <thead class="table-light">
+                        <tr>
+                            <th scope="col">#</th>
+                            <th scope="col">Nombre del diagnóstico</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tbodyNombresDiagnosticos">
+                        <tr>
+                            <td colspan="3" class="text-center text-muted">Cargando diagnósticos...</td>
+                        </tr>
+                    </tbody>
+            </table>
+        </div>
+        <div class="mt-3">
+            <button type="submit" class="btn btn-success me-2" data-bs-toggle="modal" 
+            data-bs-target="#modalAgregarDiagnostico" data-mode="add"> Agregar Nuevo Diagnóstico </button>
+            <!-- <button id="btnEliminarNombreDiagnostico" class="btn btn-danger" disabled> Eliminar Diagnóstico Seleccionado </button> -->
+            <button id="btnModificarNombreDiagnostico" class="btn btn-warning me-2" data-bs-toggle="modal" 
+            data-bs-target="#modalAgregarDiagnostico" data-mode="edit" disabled>Modificar nombre del diagnostico</button>
+        </div>
+</div>
+
+
+
+
+
+
+
+
+
+
+
+</div>
+
+
+
+
+
+
+</body>
+</html>

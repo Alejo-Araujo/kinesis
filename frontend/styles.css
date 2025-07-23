@@ -1,0 +1,1070 @@
+:root {
+    --primary-blue: #223D52;
+    --accent-blue: #448AFF;
+    --light-bg: #F5F5F5;
+    --light-grey: #B4B4B4;
+    --text-color: #323232;
+    --error-color: #dc3545; 
+    --white-text: #FFFFFF;     
+
+    --nav-item-hover-bg: rgba(68, 138, 255, 0.1); 
+    --active-nav-item-bg: var(--accent-blue);
+
+    --table-header-bg: var(--primary-blue);
+    --table-header-text: var(--white-text);
+    --table-border-color: rgba(34, 61, 82, 0.2);
+
+    --cell-empty-bg: var(--light-bg);
+    --cell-clickable-bg: #E0ECF8; 
+    --cell-hover-bg: #D0E0F0; 
+
+    --badge-bg: var(--accent-blue); 
+    
+    --error-color: #dc3545;
+    --button-agenda-bg: var(--primary-blue); 
+    --button-agenda-hover-bg: #1A2F40; 
+
+    --info-btn-bg: var(--accent-blue); 
+    --info-btn-hover-bg: #B4B4B4; 
+
+    --warning-color: #ffc107; 
+    --warning-btn-bg: #FFC107;
+    --warning-btn-hover-bg: #E0A800; 
+
+    --success-color: #28a745; 
+    --success-btn-bg: #28a745; 
+    --success-btn-hover-bg: #218838;
+
+    --ficha-header-bg: var(--primary-blue); 
+    --ficha-border-color: var(--table-border-color); 
+    --diagnostico-btn-bg: var(--accent-blue); 
+    --diagnostico-btn-hover-bg: var(--primary-blue); 
+
+    --danger-color: #dc3545; 
+    --danger-btn-bg: #dc3545; 
+    --danger-btn-hover-bg: #c82333; 
+
+    --primary-btn-bg: var(--primary-blue);
+    --primary-btn-hover-bg: #1A2F40;
+}
+
+
+body{
+  background-color: var(--light-bg);
+}
+
+
+/*ESTILOS PARA EL LOGIN*/
+/* contenedor principal */
+#divLogin {
+    padding-top: 2rem; 
+    padding-bottom: 2rem; 
+}
+
+/* Card del Login */
+#divLogin .card {
+    border: none; 
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); 
+    border-radius: 0.75rem; 
+    background-color: white; 
+}
+
+/* Imagen del logo */
+#divLogin .card .text-center img {
+    max-width: 250px; 
+    height: auto; 
+    margin-bottom: 1rem;
+}
+
+/* Iniciar sesión */
+#divLogin .card h2 {
+    color: var(--text-color); 
+    font-weight: 600;
+    margin-bottom: 1.5rem; 
+}
+
+#divLogin .card .form-label {
+    color: var(--text-color);
+    font-weight: 500;
+}
+
+/* Inputs del Formulario */
+#divLogin .card .form-control {
+    border-color: var(--light-grey); 
+    color: var(--text-color); 
+    padding: 0.75rem 1rem; 
+}
+
+#divLogin .card .form-control:focus {
+    border-color: var(--accent-blue); 
+    box-shadow: 0 0 0 0.25rem rgba(68, 138, 255, 0.25); 
+}
+
+/* Checkbox */
+#divLogin .card .form-check-input:checked {
+    background-color: var(--accent-blue);
+    border-color: var(--accent-blue);
+}
+
+#divLogin .card .form-check-input:focus {
+    box-shadow: 0 0 0 0.25rem rgba(68, 138, 255, 0.25); 
+}
+
+#divLogin .card .form-check-label {
+    color: var(--text-color);
+}
+
+/* Botón de Entrar */
+#divLogin .card .btn-primary {
+    background-color: var(--accent-blue);
+    border-color: var(--accent-blue); 
+    color: white; 
+    padding: 0.75rem 1.5rem; 
+    font-size: 1.1rem; 
+    font-weight: 600;
+    border-radius: 0.5rem; 
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease; 
+}
+
+#divLogin .card .btn-primary:hover {
+    background-color: var(--primary-blue);
+    border-color: var(--primary-blue); 
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15); 
+}
+
+#divLogin .card .btn-primary:active {
+    background-color: var(--primary-blue);
+    border-color: var(--primary-blue);
+    box-shadow: inset 0 3px 5px rgba(0, 0, 0, 0.125);
+}
+
+/* Mensaje de Error */
+#divLogin .card .alert-danger {
+    color: #fff;
+    background-color: var(--error-color);
+    border-color: var(--error-color);
+    border-radius: 0.5rem;
+    font-weight: 500;
+}
+
+/* Media Queries para responsividad */
+@media (max-width: 576px) { /* Extra pequeños dispositivos (smartphones) */
+    #divLogin .card {
+        margin: 1rem; /* Menos margen en pantallas pequeñas */
+        padding: 2rem 1.5rem; /* Ajustar padding del card */
+    }
+    #divLogin .card .text-center img {
+        max-width: 200px; /* Logo más pequeño en móviles */
+    }
+    #divLogin .card h2 {
+        font-size: 1.75rem; /* Título un poco más pequeño */
+    }
+    #divLogin .card .btn-primary {
+        font-size: 1rem; /* Botón con texto ligeramente más pequeño */
+    }
+}
+
+
+
+/* ESTILOS PARA LA BARRA DE NAVEGACION */
+
+/* Base del navbar */
+#navbar {
+    background-color: var(--primary-blue); 
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    padding-top: 0.5rem; 
+    padding-bottom: 0.5rem;
+}
+
+/* Logo */
+#navbar .navbar-brand img {
+    max-width: 100px; 
+    height: auto;     
+    filter: invert(100%) brightness(200%); /* Con esto se hace el logo blanco, la verdada q zarpado. */
+}
+
+/* Icono del toggler la "hamburguesa" para celulares */
+#navbar .navbar-toggler {
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+#navbar .navbar-toggler-icon {
+    background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='rgba%28255, 255, 255, 0.8%29' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+/* para los links */
+#navbar .navbar-nav .nav-link {
+    color: var(--white-text); 
+    padding: 0.5rem 1rem; 
+    border-radius: 0.35rem; 
+    transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* hover de los links */
+#navbar .navbar-nav .nav-item:hover .nav-link,
+#navbar .navbar-nav .nav-link:hover {
+    background-color: var(--nav-item-hover-bg); 
+    color: var(--white-text); 
+}
+
+/* para el que link q esta activo */
+#navbar .navbar-nav .active-nav-link {
+    background-color: var(--active-nav-item-bg) !important;
+    color: var(--white-text) !important;
+    font-weight: 600;
+    border-radius: 0.35rem; 
+}
+
+/* para los links activos del dropdown */
+#navbar .navbar-nav .dropdown-item.active-nav-link {
+    background-color: var(--active-nav-item-bg) !important;
+    color: var(--white-text) !important; 
+}
+
+
+/* dropdown */
+#navbar .dropdown-menu {
+    background-color: var(--primary-blue); 
+    border: none;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15); 
+    border-radius: 0.5rem;
+}
+
+#navbar .dropdown-menu .dropdown-item {
+    color: var(--white-text);
+    padding: 0.75rem 1.5rem; 
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#navbar .dropdown-menu .dropdown-item:hover {
+    background-color: var(--nav-item-hover-bg);
+    color: var(--white-text); 
+}
+
+#navbar .dropdown-menu .dropdown-item.active {
+    background-color: var(--active-nav-item-bg);
+    color: var(--white-text);
+}
+
+#navbar .dropdown-menu .dropdown-divider {
+    border-top-color: rgba(255, 255, 255, 0.1);
+}
+
+/* para el link de ficha medica q al principio esta oculto */
+#liFichaMedica[hidden] {
+    display: none !important; 
+}
+
+
+/* Ajustes de Responsividad */
+@media (max-width: 767.98px) { 
+    #navbar .navbar-nav {
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+    }
+
+    #navbar .navbar-nav .nav-item {
+        margin-bottom: 0.25rem;
+    }
+
+    #navbar .navbar-nav .nav-link {
+        padding: 0.75rem 1rem; 
+        width: 100%; 
+        text-align: left; 
+    }
+
+    #navbar .navbar-toggler {
+        margin-left: auto; 
+    }
+}
+
+/* ESTILOS PARA LA AGENDA */
+#divAgenda{
+    margin-bottom: 50px; 
+}
+
+#divAgenda h2 {
+    color: var(--text-color);
+    font-weight: 600; 
+    margin-bottom: 1.5rem; 
+    text-align: center;
+}
+
+/* Tabla de la Agenda Semanal */
+#tablaAgendaSemanal {
+    border-color: var(--table-border-color); 
+    border-radius: 0.75rem;
+    overflow: hidden; 
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    background-color: white;
+}
+
+/* Encabezado de la Tabla (Thead) */
+#tablaAgendaSemanal thead{ 
+    background-color: var(--table-header-bg) !important; 
+    color: var(--table-header-text);
+    font-weight: 600; 
+}
+
+#tablaAgendaSemanal thead th {
+    border-color: var(--table-border-color);
+    padding: 0.8rem 0.5rem; 
+    text-align: center;
+    vertical-align: middle;
+    color: var(--table-header-text);
+}
+
+/* Celdas del Body de la Tabla */
+#tablaAgendaSemanal tbody td {
+    border-color: var(--table-border-color);
+    padding: 0.7rem 0.5rem;
+    text-align: center;
+    vertical-align: middle;
+    color: var(--text-color);
+}
+
+/* Celda de Horario (Primera columna) */
+#tablaAgendaSemanal tbody tr td:first-child {
+    background-color: var(--cell-empty-bg); 
+    font-weight: 500; 
+    color: var(--primary-blue);
+}
+
+/* Celdas Vacías (sin horario asignado) - de agenda.js `table-light` */
+#tablaAgendaSemanal tbody td.table-light {
+    background-color: var(--cell-empty-bg) !important; 
+    color: var(--light-grey);
+}
+
+/* Celdas Clickables (con grupos de pacientes) - de agenda.js `clickable-schedule-cell` */
+#tablaAgendaSemanal tbody td.clickable-schedule-cell {
+    background-color: var(--cell-clickable-bg); 
+    cursor: pointer; 
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+#tablaAgendaSemanal tbody td.clickable-schedule-cell:hover {
+    background-color: var(--cell-hover-bg); 
+    transform: translateY(-2px); 
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1); 
+}
+
+/* Badge de Pacientes dentro de la celda - de agenda.js `badge bg-primary rounded-pill` */
+#tablaAgendaSemanal tbody td.clickable-schedule-cell .badge.bg-primary { 
+    background-color: var(--badge-bg) !important;
+    color: var(--white-text); 
+    font-size: 0.9em;
+    padding: 0.5em 0.8em; 
+    font-weight: 600;
+}
+
+/* Estilo para el mensaje "No hay horarios disponibles" */
+#tablaAgendaSemanal tbody tr:has(td.text-muted) td {
+    background-color: var(--cell-empty-bg); 
+    color: var(--light-grey) !important;
+    font-style: italic;
+}
+
+/* Botón "Agregar Horario" */
+#btnAgregarHorario {
+    background-color: var(--button-agenda-bg) !important; 
+    border-color: var(--button-agenda-bg) !important;
+    color: var(--white-text) !important; 
+    padding: 0.6rem 1.2rem;
+    font-size: 1rem;
+    font-weight: 600;
+    border-radius: 0.5rem;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#btnAgregarHorario:hover {
+    background-color: var(--button-agenda-hover-bg) !important;
+    border-color: var(--button-agenda-hover-bg) !important;
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+
+/*ESTILOS PARA LOS MODALS*/
+/* contenedor principal */
+.modal-content {
+    border-radius: 0.75rem;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15); 
+    border: none; 
+    background-color: white; 
+}
+
+/* encabezado */
+.modal-header {
+    background-color: var(--primary-blue); 
+    color: var(--white-text); 
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1); 
+    border-top-left-radius: 0.75rem;
+    border-top-right-radius: 0.75rem;
+    padding: 1.25rem 1.5rem;
+}
+
+.modal-header .modal-title {
+    color: var(--white-text); 
+    font-weight: 600; 
+}
+
+/* boton de cerrar */
+.modal-header .btn-close {
+    filter: invert(1) grayscale(1) brightness(2); 
+    opacity: 0.8;
+    transition: opacity 0.2s ease;
+}
+
+.modal-header .btn-close:hover {
+    opacity: 1; 
+}
+
+/* cuerpo */
+.modal-body {
+    color: var(--text-color);
+    padding: 1.5rem; 
+    line-height: 1.6;
+}
+
+/* pie de pagina */
+.modal-footer {
+    background-color: var(--light-bg);
+    border-top: 1px solid var(--light-grey); 
+    border-bottom-left-radius: 0.75rem; 
+    border-bottom-right-radius: 0.75rem;
+    padding: 1rem 1.5rem; 
+}
+
+/* botones del footer */
+.modal-footer .btn {
+    padding: 0.6rem 1.2rem; 
+    font-weight: 500; 
+    border-radius: 0.4rem; 
+}
+
+/* boton principal */
+.modal .btn-primary {
+    background-color: var(--accent-blue);
+    border-color: var(--accent-blue);
+    color: var(--white-text);
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.modal .btn-primary:hover {
+    background-color: var(--primary-blue); 
+    border-color: var(--primary-blue);
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* boton secundario */
+.modal .btn-secondary {
+    background-color: var(--light-grey);
+    border-color: var(--light-grey);
+    color: var(--text-color); 
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.modal .btn-secondary:hover {
+    background-color: #A0A0A0; 
+    border-color: #A0A0A0;
+    color: var(--white-text); 
+}
+
+/* listas adentro de los modals */
+.modal .list-group-item {
+    color: var(--text-color);
+    background-color: white;
+    border-color: var(--light-grey); 
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.modal .list-group-item.list-group-item-action:hover {
+    background-color: var(--light-bg); 
+    color: var(--primary-blue); 
+    cursor: pointer;
+}
+
+.modal .list-group-item.active {
+    background-color: var(--accent-blue) !important;
+    border-color: var(--accent-blue) !important;
+    color: var(--white-text) !important;
+    font-weight: 500;
+}
+
+/* estilos para los titulos de los modals */
+.modal-body h6 {
+    color: var(--primary-blue); 
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+/* estilos para los mensajes */
+.modal-body p.text-muted {
+    color: var(--light-grey) !important;
+    font-style: italic;
+    margin-top: 0.5rem;
+}
+
+/* botones secundarios de los modals */
+.modal-body .btn-sm {
+    padding: 0.5rem 1rem; 
+    font-size: 0.875rem; 
+}
+
+/* BOTONES */
+.btn-primary {
+    background-color: var(--accent-blue) !important;
+    border-color: var(--accent-blue) !important;
+    color: var(--white-text) !important;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-primary:hover {
+    background-color: var(--primary-blue) !important;
+    border-color: var(--primary-blue) !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* Botón Secundario */
+.btn-secondary {
+    background-color: var(--light-grey) !important;
+    border-color: var(--light-grey) !important;
+    color: var(--text-color) !important;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.btn-secondary:hover {
+    background-color: #A0A0A0 !important;
+    border-color: #A0A0A0 !important;
+    color: var(--white-text) !important;
+}
+
+.btn-info {
+    background-color: var(--info-btn-bg) !important;
+    border-color: var(--info-btn-bg) !important;
+    color: var(--white-text) !important;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-info:hover {
+    background-color: var(--info-btn-hover-bg) !important;
+    border-color: var(--info-btn-hover-bg) !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.btn-warning {
+    background-color: var(--warning-btn-bg) !important;
+    border-color: var(--warning-btn-bg) !important;
+    color: var(--text-color) !important; 
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-warning:hover {
+    background-color: var(--warning-btn-hover-bg) !important;
+    border-color: var(--warning-btn-hover-bg) !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.btn-danger {
+    background-color: var(--danger-btn-bg) !important;
+    border-color: var(--danger-btn-bg) !important;
+    color: var(--white-text) !important; 
+    font-weight: bold;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.btn-danger:hover {
+    background-color: var(--danger-btn-hover-bg) !important;
+    border-color: var(--danger-btn-hover-bg) !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+.btn-outline-danger {
+    color: var(--error-color) !important;
+    border-color: var(--error-color) !important;
+    background-color: transparent !important;
+    transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+.btn-outline-danger:hover {
+    background-color: var(--error-color) !important;
+    color: var(--white-text) !important;
+    border-color: var(--error-color) !important;
+}
+
+.btn-success {
+    background-color: var(--success-btn-bg) !important;
+    border-color: var(--success-btn-bg) !important;
+    color: var(--white-text) !important;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.btn-success:hover {
+    background-color: var(--success-btn-hover-bg) !important;
+    border-color: var(--success-btn-hover-bg) !important;
+    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+}
+
+/* PARA EL DIV DE PACIENTES */
+
+/* contenedor principal */
+#divPaciente {
+    padding-top: 20px; 
+    padding-bottom: 20px; 
+}
+
+/* titulos */
+#divPaciente .form-label {
+    font-weight: 500;
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+}
+
+/* inputs y selects */
+.form-control,
+.form-select {
+    border-color: var(--light-grey); 
+    border-radius: 0.35rem; 
+    box-shadow: none; 
+    color: var(--text-color); 
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.form-control:focus,
+.form-select:focus {
+    border-color: var(--accent-blue);
+    box-shadow: 0 0 0 0.25rem rgba(68, 138, 255, 0.25); 
+}
+
+.form-text {
+    color: var(--light-grey); 
+    font-size: 0.85em; 
+    margin-top: 0.25rem;
+}
+
+/* Contenedor de la tabla de pacientes */
+#divTablaPacientes {
+    background-color: white; 
+    border-color: var(--table-border-color);
+    border-radius: 0.75rem; 
+    overflow: hidden; 
+    margin-top: 1.5rem; 
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    position: relative; 
+}
+
+.loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.8); 
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    border-radius: 0.75rem; 
+}
+
+.loading-overlay .spinner-border {
+    color: var(--accent-blue) !important; 
+    width: 3rem;
+    height: 3rem;
+}
+
+.loading-overlay p.text-primary {
+    color: var(--primary-blue) !important; 
+    font-weight: 500;
+}
+
+/* Tabla de Pacientes */
+#tablaPacientes {
+    border-color: var(--table-border-color); 
+    margin-bottom: 0;
+    width: 100%;
+}
+
+/* Encabezado de la Tabla de Pacientes */
+#tablaPacientes thead {
+    background-color: var(--table-header-bg);
+    color: var(--table-header-text); 
+    font-weight: 600;
+}
+
+#tablaPacientes thead th {
+    border-color: var(--table-border-color); 
+    padding: 0.8rem 0.5rem;
+    text-align: center; 
+    vertical-align: middle;
+    color: var(--table-header-text); 
+}
+
+/* Cuerpo de la Tabla de Pacientes */
+#tablaPacientes tbody td {
+    border-color: var(--table-border-color); 
+    padding: 0.7rem 0.5rem; 
+    color: var(--text-color); 
+    vertical-align: middle;
+}
+
+#tablaPacientes tbody tr:hover {
+    background-color: var(--light-bg) !important; 
+    cursor: pointer;
+}
+
+#tablaPacientes tbody tr.table-active {
+    background-color: rgba(68, 138, 255, 0.05) !important; 
+    color: var(--text-color) !important; 
+}
+
+#tablaPacientes tbody tr.table-inactive {
+    background-color: var(--light-bg) !important; 
+    color: var(--light-grey) !important; 
+    font-style: italic; 
+}
+
+#tablaPacientes tbody tr.table-inactive:hover {
+    background-color: rgba(0, 0, 0, 0.05) !important; 
+    color: var(--light-grey) !important;
+}
+
+
+.table-selected {
+    background-color: var(--cell-clickable-bg) !important; 
+    color: var(--text-color); 
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.15); 
+    border-left: 5px solid var(--primary-blue); 
+    transition: background-color 0.2s ease, box-shadow 0.2s ease, border-left 0.2s ease;
+}
+
+.table-hover tbody tr.table-selected:hover {
+    background-color: var(--cell-clickable-bg) !important; 
+    cursor: default; 
+}
+
+.table-selected td,
+.table-selected th { 
+    border: 2px solid var(--primary-blue) !important; 
+}
+
+.table-selected td:first-child,
+.table-selected th:first-child {
+    border-left: none !important; 
+}
+
+
+#tablaPacientesSeleccionSesion tbody tr{
+    cursor: pointer;
+}
+
+#tablaPacientesSeleccion tbody tr{
+    cursor: pointer;
+}
+
+#modalTablaSesiones tbody tr{
+    cursor: pointer;
+}
+
+
+
+/* Pie de tabla con contador y paginación */
+#divTablaPacientes .d-flex.justify-content-between.align-items-center {
+    background-color: var(--light-bg) !important;
+    border-color: var(--table-border-color) !important; 
+    color: var(--text-color) !important; 
+    padding: 0.8rem 1rem;
+}
+
+#divTablaPacientes .d-flex.justify-content-between.align-items-center strong {
+    color: var(--primary-blue); 
+}
+
+
+/* Paginación */
+#paginationControls .page-item .page-link {
+    color: var(--primary-blue); 
+    border-color: var(--table-border-color);
+    background-color: white;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#paginationControls .page-item .page-link:hover {
+    background-color: var(--light-bg); 
+    color: var(--accent-blue);
+}
+
+#paginationControls .page-item.active .page-link {
+    background-color: var(--accent-blue) !important;
+    border-color: var(--accent-blue) !important;
+    color: var(--white-text) !important; 
+}
+
+#paginationControls .page-item.disabled .page-link {
+    color: var(--light-grey) !important; 
+    background-color: white !important;
+    border-color: var(--table-border-color) !important;
+}
+
+/* Ajustes de botones de acción debajo de la tabla (si son btn-sm) */
+.mt-3 .btn-sm {
+    padding: 0.5rem 1rem; 
+    font-size: 0.875rem; 
+}
+
+/* FICHA MEDICA */
+#divFichaMedica h2 {
+    color: var(--primary-blue);
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+}
+
+#divFichaMedica .card {
+    border-color: var(--ficha-border-color) !important;
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); 
+}
+
+#divFichaMedica .card-header {
+    background-color: var(--ficha-header-bg) !important;
+    color: var(--white-text) !important; 
+    font-weight: 500;
+    padding: 0.75rem 1.25rem;
+    border-bottom: 1px solid var(--ficha-header-bg);
+}
+
+#divFichaMedica .card-body p {
+    margin-bottom: 0.5rem; 
+    color: var(--text-color); 
+}
+
+#divFichaMedica .card-body p strong {
+    color: var(--primary-blue); 
+    font-weight: 600;
+    margin-right: 0.5rem; 
+}
+
+#diagnosticosContainer .diagnostico-item {
+    border: 1px solid var(--ficha-border-color) !important;
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    background-color: var(--light-bg);
+}
+
+#diagnosticosContainer .diagnostico-btn {
+    background-color: var(--diagnostico-btn-bg) !important;
+    border-color: var(--diagnostico-btn-bg) !important;
+    color: var(--white-text) !important;
+    padding: 0.5rem 1rem;
+    border-radius: 0.3rem;
+    font-weight: 500;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#diagnosticosContainer .diagnostico-btn:hover {
+    background-color: var(--diagnostico-btn-hover-bg) !important;
+    border-color: var(--diagnostico-btn-hover-bg) !important;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+}
+
+/* Estilo para el área de texto del editor TinyMCE */
+.tinymce-editor-target {
+    border: 1px solid var(--light-grey) !important; /* Borde gris claro */
+    border-radius: 0.25rem !important;
+    width: 100%; /* Asegura que ocupe todo el ancho disponible */
+    padding: 0.5rem; /* Añade un poco de espacio interno */
+    box-sizing: border-box; /* Incluye padding en el tamaño total */
+    resize: vertical; /* Permite redimensionar verticalmente */
+}
+
+.tinymce-editor-target:focus {
+    border-color: var(--accent-blue) !important; /* Borde azul de acento al enfocar */
+    box-shadow: 0 0 0 0.25rem rgba(68, 138, 255, 0.25) !important; /* Sombra al enfocar */
+    outline: none; /* Elimina el contorno predeterminado del navegador */
+}
+
+/* Pequeño ajuste para elementos de lista seleccionables en modales (como en agenda.js) */
+.list-group-item.active {
+    background-color: var(--accent-blue) !important;
+    border-color: var(--accent-blue) !important;
+    color: var(--white-text) !important;
+}
+
+/* DIV NOMBRES DIAGNOSTICOS */
+#divNombreDiagnostico {
+    margin-bottom: 50px; 
+}
+
+#tablaNombresDiagnosticos tbody tr{
+    cursor: pointer; 
+}
+
+
+/* ESTILOS PARA TABLAS */
+.table-scroll {
+  max-height: 400px; 
+  overflow-y: auto; 
+}
+
+
+/* CALENDARIO/AGENDA PERSONAL */
+#divAgendaPersonal {
+    padding-bottom: 20px; 
+}
+
+/* El card principal del calendario: crucial para ajustar la altura a la pantalla */
+#calendar {
+    position: relative; /* Necesario para posicionar correctamente el overlay de carga */
+    display: flex; /* Permite que el contenido del card (header, nombres de días, cuadrícula) se organice verticalmente */
+    flex-direction: column;
+    /* Calcula la altura total del calendario basada en la altura de la ventana (vh)
+       y resta un valor estimado (120px) para el encabezado de tu página, márgenes, etc.
+       ¡Es muy importante que ajustes este valor (120px) para que se adapte perfectamente a tu layout! */
+    height: calc(100vh - 120px); 
+    min-height: 500px; /* Altura mínima para asegurar que el calendario no se vuelva demasiado pequeño en pantallas cortas */
+    border-radius: 0.5rem; /* Bordes redondeados consistentes con shadow-sm */
+}
+
+/* Asegura que el encabezado y los nombres de los días no se encojan */
+.calendar-header,
+.calendar-days-names {
+    flex-shrink: 0; 
+}
+
+/* La cuadrícula de los días del calendario: distribuye el espacio uniformemente */
+#calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr); /* 7 columnas de igual ancho */
+    grid-auto-rows: 1fr; /* ¡Clave! Hace que todas las filas tengan la misma altura, distribuyendo el espacio vertical restante */
+    flex-grow: 1; /* Permite que la cuadrícula ocupe todo el espacio vertical disponible dentro de #calendar */
+    overflow: hidden; /* Oculta cualquier contenido que se desborde si las celdas se vuelven muy pequeñas */
+    border-top: 1px solid var(--table-border-color); /* Borde superior para separar de los nombres de los días */
+    border-left: 1px solid var(--table-border-color); /* Borde izquierdo para la cuadrícula */
+    cursor: pointer;
+}
+
+/* Estilos para cada celda de día individual */
+.calendar-day {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start; /* Alinea el contenido al inicio de la celda */
+    align-items: center; /* Centra el contenido horizontalmente */
+    border-right: 1px solid var(--table-border-color); /* Borde derecho */
+    border-bottom: 1px solid var(--table-border-color); /* Borde inferior */
+    padding: 2px; /* Reduce el padding para maximizar el espacio del contenido */
+    overflow: hidden; /* Importante para que el contenido no se salga */
+    text-align: center;
+    font-size: 0.8em; /* Reduce el tamaño de la fuente general del día */
+    box-sizing: border-box; /* Asegura que padding y border no aumenten el tamaño de la celda */
+}
+
+/* Colores y estilos para días del mes anterior/siguiente */
+.calendar-day.other-month {
+    background-color: #f9f9f9; /* Un color de fondo ligeramente diferente */
+    color: #b0b0b0; /* Texto más claro */
+}
+
+/* Estilos para el número del día */
+.calendar-day .day-number {
+    font-weight: bold;
+    font-size: 1.2em; /* Número del día un poco más grande */
+    margin-bottom: 2px; /* Pequeño espacio debajo del número */
+}
+
+/* Estilos para el contenedor de sesiones dentro de cada día */
+.calendar-day .sessions-container {
+    flex-grow: 1; /* Permite que este contenedor ocupe el espacio restante en la celda */
+    display: flex;
+    flex-direction: column;
+    justify-content: center; /* Centra las sesiones verticalmente */
+    align-items: center;
+    width: 100%;
+}
+
+/* Estilos para el texto de conteo de sesiones */
+.calendar-day .session-count-text {
+    font-size: 0.7em; /* Fuente más pequeña para el conteo de sesiones */
+    font-weight: 600;
+    color: var(--primary-blue);
+    white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
+    overflow: hidden; /* Oculta si el texto es demasiado largo */
+    text-overflow: ellipsis; /* Añade puntos suspensivos si el texto es muy largo */
+}
+
+/* Estilos para los días con sesiones */
+.calendar-day.has-sessions {
+    background-color: var(--cell-clickable-bg); /* Color para resaltar días con sesiones */
+    cursor: pointer;
+}
+
+/* Estilos para el overlay de carga */
+#calendar-loading-overlay {
+    position: absolute; /* Absoluto respecto al contenedor #calendar */
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.8); /* Fondo semitransparente */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    z-index: 10; /* Asegura que esté por encima del calendario */
+    opacity: 0;
+    visibility: hidden; /* Oculto por defecto */
+    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out; /* Transición suave */
+    pointer-events: none; /* Permite clics a través cuando está oculto */
+}
+
+#calendar-loading-overlay.show {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto; /* Habilita interacción cuando es visible */
+}
+
+/* Estilos para el spinner y el texto de carga */
+#calendar-loading-overlay .spinner-border {
+    width: 3rem;
+    height: 3rem;
+}
+
+#calendar-loading-overlay p {
+    font-size: 1.1em;
+    font-weight: 500;
+}
+
+
+/* PARA LOS MENSAJES */
+#messageContainer {
+    position: fixed; 
+    top: 20px;       
+    right: 20px;     
+    z-index: 9999 !important;   
+    max-width: 350px; 
+    pointer-events: none; 
+}
+
+#messageContainer .alert {
+    pointer-events: auto; 
+    margin-bottom: 10px; 
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
