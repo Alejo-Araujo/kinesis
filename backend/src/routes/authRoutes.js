@@ -13,4 +13,6 @@ router.get('/validateToken', authenticateToken, (req,res) => {
 });
 router.post('/login', authController.login);
 
+router.get('/isAdministrador', authenticateToken, authController.isAdministrador);
+
 module.exports = router;

@@ -37,11 +37,14 @@ function inicializarNavbar(cambioDeVista) {
     const navLinks = document.querySelectorAll('.navbar-nav a[data-target]'); 
     
     navLinks.forEach(link => { 
-        link.addEventListener('click', (event) => { 
+        link.addEventListener('click', async (event) => { 
             event.preventDefault(); 
 
             const divId = link.dataset.target;
-            mostrar(divId);
+            const resultado = await mostrar(divId);
+            if(resultado === false){
+                return;
+            }
             navItemActive(divId);
             adjustBodyPadding();
             if (cambioDeVista && typeof cambioDeVista === 'function') {

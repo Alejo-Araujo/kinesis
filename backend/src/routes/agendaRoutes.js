@@ -6,6 +6,7 @@ const { authenticateToken } = require('../middelwares/authMiddelware.js');
 router.get('/horariosCompletos', authenticateToken, agendaController.getAllHorariosCompletos);
 router.post('/horario', authenticateToken, agendaController.addHorario);
 router.get('/horario', authenticateToken, agendaController.getHorarioByCompositeKey);
+router.get('/fijarseHorario', authenticateToken, agendaController.getHorariosForPaciente);
 
 router.put('/agregarPacienteGrupo', authenticateToken, agendaController.agregarPacienteGrupo);
 router.put('/agregarFisioGrupo', authenticateToken, agendaController.agregarFisioGrupo);

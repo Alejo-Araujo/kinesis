@@ -15,7 +15,7 @@ function isValidNombre(nombre) {
 async function getAllNombresDiagnosticos(req,res){
     try{
         const [rows] = await db.execute
-        (`SELECT * from nombrediagnostico ORDER BY id ASC`,[]);
+        (`SELECT * from nombrediagnostico ORDER BY nombre ASC`,[]);
 
         res.json(rows);
     } catch (error) {
@@ -23,7 +23,7 @@ async function getAllNombresDiagnosticos(req,res){
         logger.error(error.stack);
         res.status(500).json({ message: 'Error interno del servidor al obtener pacientes.' });
     }
-};
+}
 
 async function agregarNombreDiagnostico(req,res) {
     let { nombre } = req.body;
@@ -78,7 +78,7 @@ const id = req.params.id;
 
     try {
         const [result] = await db.execute(
-            `UPDATE nombreDiagnostico SET
+            `UPDATE nombrediagnostico SET
              nombre = ? 
              WHERE id = ?`,
             [nombre, id]
@@ -165,48 +165,55 @@ async function eliminarDiagnostico(req,res){
     }    
 }
 
-// async function eliminarNombreDiagnostico(req, res){
-// let { id } = req.params;
+async function eliminarNombreDiagnostico(req, res){
+let { id } = req.params;
 
-//     const diagnosticoIdNum = parseInt(id, 10);
-//     if (isNaN(diagnosticoIdNum) || diagnosticoIdNum <= 0) {
-//         logger.warn(`Intento de eliminar nombre diagnostico con ID inválido: ${diagnosticoIdNum}`);
-//         return res.status(400).json({ message: 'ID de diagnóstico no válido.' });
-//     }
+    const diagnosticoIdNum = parseInt(id, 10);
+    if (isNaN(diagnosticoIdNum) || diagnosticoIdNum <= 0) {
+        logger.warn(`Intento de eliminar nombre diagnostico con ID inválido: ${diagnosticoIdNum}`);
+        return res.status(400).json({ message: 'ID de diagnóstico no válido.' });
+    }
 
-//     try {
-//         const [result] = await db.execute(
-//             `DELETE FROM nombreDiagnostico WHERE id = ?`,
-//             [diagnosticoIdNum]
-//         );
+    try {
+        const [result2] = await db.execute(
+            `DELETE FROM diagnostico 
+            WHERE idNombreDiagnostico = ? AND idPaciente IN (SELECT id FROM paciente WHERE fechaBaja IS NOT NULL)`,
+            [diagnosticoIdNum]
+        );
 
-//         if (result.affectedRows === 0) {
-//             logger.warn(`Intento de eliminar nombre diagnostico con ID inexistente: ${diagnosticoIdNum}`);
-//             return res.status(404).json({ message: `Diagnóstico con ID ${diagnosticoIdNum} no encontrado.` });
-//         }
+        logger.log(`Registros de diagnósticos asociados a pacientes dados de baja eliminados: ${result2.affectedRows}`);
 
-//         logger.log(`Nombre diagnostico eliminado con ID: ${id}`);
-//         res.status(204).end();
+        const [result] = await db.execute(
+            `DELETE FROM nombrediagnostico WHERE id = ? 
+            AND NOT EXISTS (SELECT 1 FROM diagnostico WHERE idNombreDiagnostico = ?);`,
+            [diagnosticoIdNum, diagnosticoIdNum]
+        );
 
-//     } catch (error) {
+        if (result.affectedRows === 0) {
+            logger.warn(`Intento de eliminar nombre diagnostico con ID inexistente o asociado a alguna historia clínica: ${diagnosticoIdNum}`);
+            return res.status(404).json({ message: `El diagnóstico esta registrado en la historia clínica de algun paciente.` });
+        }
 
-//          if(error.code === 'ER_ROW_IS_REFERENCED_2'){
-//             return res.status(409).json({ message: 'El diagnóstico esta registrado en la ficha médica de algun paciente.' });
-//          }
+        logger.log(`Nombre diagnostico eliminado con ID: ${id}`);
+        res.status(204).end();
 
+    } catch (error) {
 
+         if(error.code === 'ER_ROW_IS_REFERENCED_2'){
+            return res.status(409).json({ message: 'El diagnóstico esta registrado en la historia clínica de algun paciente.' });
+        }
 
-
-//         logger.error('Error al eliminar el nombre diagnostico en la base de datos:', error.message);
-//         logger.error(error.stack);
-//         res.status(500).json({ message: 'Error interno del servidor al eliminar el nombre diagnostico.' });
-//     }    
-// }
+        logger.error('Error al eliminar el nombre diagnostico en la base de datos:', error.message);
+        logger.error(error.stack);
+        res.status(500).json({ message: 'Error interno del servidor al eliminar el nombre diagnostico.' });
+    }    
+}
 
 module.exports = { 
     getAllNombresDiagnosticos, 
     agregarNombreDiagnostico, 
     agregarDiagnostico,
     modifyNombreDiagnosticoById, 
-    eliminarDiagnostico
+    eliminarDiagnostico,
+    eliminarNombreDiagnostico
      };

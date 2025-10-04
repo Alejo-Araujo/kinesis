@@ -4,26 +4,11 @@ import { inicializarFichaMedica } from './fichaMedica.js';
 import { inicializarAgenda } from './agenda.js';
 import { mostrarLogin, inicializarLogin, ocultarLogin, getAuthToken } from './login.js';
 import { inicializarNombreDiagnostico, inicializarAgregarModificarNombreDiagnostico, inicializarAgregarDiagnosticoPaciente,
-         inicializarEliminarDiagnosticoPaciente } from './diagnosticos.js';
-import { populateAllDiagnosticosSelects, populateAllFisiosSelects } from './utils.js';
+         inicializarEliminarDiagnosticoPaciente, inicializarEliminarNombreDiagnostico } from './diagnosticos.js';
+import { populateAllDiagnosticosSelects, populateAllFisiosSelects, populateAllYearSelects} from './utils.js';
 import { mostrar } from './ui.js';
 import { inicializarCalendario } from './calendario.js';
-//////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// function checkAuthStatus() {
-//     const token = getAuthToken();
-//     if (token) {
-//         // En una aplicación real, aquí también podrías querer verificar la validez del token
-//         // contra una ruta de verificación en el backend, o al menos decodificarlo
-//         // para ver si expiró (usando jwt-decode, pero solo para UI, no seguridad).
-//         // Por ahora, asumimos que si hay un token, el usuario está "conectado".
-//         ocultarLogin(); // Si hay token, oculta el login y muestra el contenido principal
-//         //console.log('Usuario ya conectado.');
-//     } else {
-//         mostrarLogin(); // Si no hay token, muestra el formulario de login
-//         console.log('Usuario no conectado. Mostrar formulario de login.');
-//     }
-// }
+import { inicializarCuota } from './cuota.js';
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -95,11 +80,34 @@ function inicializarAplicacionPrincipal(){
         'tableLoadingOverlaySeleccionSesion'
     );
 
-
-
-
-
+    //PARA LA TABLA DE AGREGAR PACIENTE A CUOTA
+    inicializarPatientTable(
+        'tablaPacientesSeleccionCuota',
+        'inputBuscarNombreSeleccionCuota',
+        'inputBuscarCedulaSeleccionCuota',
+        'selectDiagnosticosBuscarSeleccionCuota',
+        'selectActiveSeleccionCuota',
+        'contadorPacientesSeleccionCuota',
+        'paginationControlsSeleccionCuota',
+        ['btnSeleccionarPacienteCuotaModal'],
+        'tableLoadingOverlaySeleccionCuota'
+    );
     
+    //PARA LA TABLA DE AGREGAR PACIENTE A FIJARSE HORARIO
+    inicializarPatientTable(
+        'tablaPacientesSeleccionFijarseHorario',
+        'inputBuscarNombreSeleccionFijarseHorario',
+        'inputBuscarCedulaSeleccionFijarseHorario',
+        'selectDiagnosticosBuscarSeleccionFijarseHorario',
+        'selectActiveSeleccionFijarseHorario',
+        'contadorPacientesSeleccionFijarseHorario',
+        'paginationControlsSeleccionFijarseHorario',
+        ['btnSeleccionarPacienteModalFijarseHorario'],
+        'tableLoadingOverlaySeleccionFijarseHorario'
+    );
+
+
+
     inicializarFichaMedica();
     
     inicializarAgenda();
@@ -111,11 +119,15 @@ function inicializarAplicacionPrincipal(){
     inicializarAgregarModificarNombreDiagnostico();
     inicializarAgregarDiagnosticoPaciente();
     inicializarEliminarDiagnosticoPaciente();
+    inicializarEliminarNombreDiagnostico();
     
     inicializarNombreDiagnostico();
 
+    inicializarCuota();
+
     populateAllDiagnosticosSelects();
     populateAllFisiosSelects();
+    populateAllYearSelects();
 
     initializeAppAndHidePreloader();
     mostrar('divAgenda');

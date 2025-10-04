@@ -37,7 +37,7 @@ const limitPerPage = 200;
 
 
 function setActionButtonsState(enable, buttons = []) {
-   // console.log(buttons);
+    // console.log(buttons);
         buttons.forEach(buttonId => {
             const button = document.getElementById(buttonId);
             if (button) {
@@ -57,8 +57,6 @@ function inicializarPatientTable(
     actionButtonIds = [],
     tableLoadingOverlay 
 ) {
-    
-
     setActionButtonsState(false,actionButtonIds);
 
     // Controla la seleccion de filas
@@ -177,7 +175,6 @@ function getFilterParams(
     return params.toString();
 }
 
-
 async function fetchPacientes(
     selectDiagnosticoBuscarParam,
     inputBuscarNombreParam,
@@ -228,7 +225,8 @@ async function renderPacientesTable(
     tableLoadingOverlay
 ) {
     setActionButtonsState(false,actionButtonIds);
-    showLoadingIndicator(tableLoadingOverlay);
+    
+    
     const tablaPacientesBody = document.querySelector(`#${tablaPacientesParam} tbody`);
     const contador = document.getElementById(`${contadorPacientesParam}`);
     const paginationControls = document.getElementById(`${paginationControlsParam}`);
@@ -239,7 +237,8 @@ async function renderPacientesTable(
 
     tablaPacientesBody.innerHTML = '';
     paginationControls.innerHTML = '';
-
+    showLoadingIndicator(tableLoadingOverlay);
+    
     try {
         const data = await fetchPacientes(selectDiagnosticoBuscarParam, inputBuscarNombreParam, inputBuscarCedulaParam, selectActiveParam);
         const pacientes = data.pacientes;
@@ -269,7 +268,7 @@ async function renderPacientesTable(
              }
             row.insertCell(0).textContent = paciente.id; 
             row.insertCell(1).textContent = paciente.nomyap;
-            row.insertCell(2).textContent = paciente.cedula;
+            row.insertCell(2).textContent = paciente.cedula || '---';
             row.insertCell(3).textContent = paciente.diagnosticos || '---';
             row.insertCell(4).textContent = paciente.telefono || '---';
             row.insertCell(5).textContent = paciente.gmail || '---';
@@ -286,6 +285,7 @@ async function renderPacientesTable(
         inputBuscarCedulaParam,
         selectActiveParam,
         actionButtonIds,
+        tableLoadingOverlay,
         totalPages
         );
 
@@ -306,11 +306,11 @@ function renderPaginationControls(
     inputBuscarCedulaParam,
     selectActiveParam,
     actionButtonIds = [],
+    tableLoadingOverlay,
     totalPages
 ) {
     const paginationControls = document.getElementById(`${paginationControlsParam}`);
     paginationControls.innerHTML = '';
-
     if (totalPages <= 1) {
         return;
     }
@@ -333,8 +333,9 @@ function renderPaginationControls(
                 selectDiagnosticoBuscarParam,
                 inputBuscarNombreParam,
                 inputBuscarCedulaParam,
+                selectActiveParam,
                 actionButtonIds,
-                selectActiveParam
+                tableLoadingOverlay                
             );
         });
         pageLi.appendChild(pageLink);
@@ -396,7 +397,9 @@ function inicializarAgregarModificarPaciente() {
                     if (pacienteData) {
                         inputAgregarNombreApellido.value = pacienteData.nomyap;
                         inputCedula.value = pacienteData.cedula;
-                        inputFechaNacimiento.value = pacienteData.fechaNacimiento.split('T')[0];
+                        if(pacienteData.fechaNacimiento !== null){
+                            inputFechaNacimiento.value = pacienteData.fechaNacimiento.split('T')[0];
+                        }                        
                         const nroRegex = separarNumeroConRegex(pacienteData.telefono);
                         selectCodigoPais.value = nroRegex.codigoPais; 
                         inputNumeroLocal.value = nroRegex.numeroTelefono;

@@ -32,8 +32,6 @@ function mostrarLogin(){
     }, 2000);
 }
 
-
-
 function mostrarLoginElementos() {
     removeAuthToken();
     if (divLogin) divLogin.classList.remove('d-none'); 

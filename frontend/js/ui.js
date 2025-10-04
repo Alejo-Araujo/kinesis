@@ -1,9 +1,20 @@
 import { renderPacientesTable } from "./pacientes.js";
 import { renderNombresDiagnosticosTable } from "./diagnosticos.js";
+import { renderCuotaTable } from "./cuota.js";
+import { getAuthToken } from "./login.js";
+import { inicializarCuota } from "./cuota.js";
 
 async function mostrar(divId) {
+
+    const verificacion = await verificarAutorizacion(divId);
+    if(!verificacion){
+        mostrarMensaje('No tienes permiso para acceder a esta sección.','danger');
+        return false;
+    }
+
     const divAMostrar = document.getElementById(divId);
     const contenedores = document.querySelectorAll('div.container');
+    
     contenedores.forEach(div => {
         if (div.id !== 'messageContainer') {
             div.classList.add('d-none');
@@ -16,12 +27,50 @@ async function mostrar(divId) {
         console.warn(`Advertencia: El elemento con ID ${divId} no fue encontrado en el DOM.`);
     }
 
-    deseleccionarFilas(divAMostrar.id);
-    // switch(divAMostrar.id)
+    //Esto es para que entre solamente cuando la unica forma en la que se 
+    // deseleccionan las filas y limpian los filtros es al cambiar de pestaña
+    const divsConTablas = ['divPaciente', 'divNombreDiagnostico', 'divCuotas'];
+    if (divsConTablas.includes(divId)) {
+        deseleccionarFilas(divAMostrar.id);
+    }
+}
+
+async function verificarAutorizacion(divId){
+    switch(divId){
+        case 'divCuotas':
+            const token = getAuthToken();
+            try{
+                const response = await fetch('/api/auth/isAdministrador', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+
+                if (!response.ok){
+                    const data = await response.json();
+                    console.error('Error del servidor:', data.message);
+                    return false;
+                }
+
+                const data = await response.json();
+                return data.resultado;
+
+            } catch (error) {
+                console.error('Error al verificar autorización:', error);
+                mostrarMensaje('Error al verificar autorización.');
+                return false;
+            }
+
+
+        default:
+            return true;
+    }
 }
 
 function deseleccionarFilas(divId){
-    const divsConTablas = ['divPaciente', 'divNombreDiagnostico', 'divAgenda', 'divAgendaPersonal'];
+    const divsConTablas = ['divPaciente', 'divNombreDiagnostico', 'divAgenda', 'divAgendaPersonal', 'divAgendaFijarseHorario', 'divCuotas', 'divCuotasPaciente'];
     if(divsConTablas.includes(divId)){
         let tablaId = '';
         switch(divId){
@@ -57,7 +106,7 @@ function deseleccionarFilas(divId){
             break;
             case 'divAgendaPersonal':
                 tablaId = 'tablaPacientesSeleccionSesion';
-                limpiarFiltros( 'filtrosPacienteSeleccionContainer', () => renderPacientesTable(
+                limpiarFiltros( 'filtrosPacienteSeleccionContainerSesion', () => renderPacientesTable(
                     'tablaPacientesSeleccionSesion',
                     'contadorPacientesSeleccionSesion',
                     'paginationControlsSeleccionSesion',
@@ -68,7 +117,41 @@ function deseleccionarFilas(divId){
                     ['btnSeleccionarPacienteModalSesion'],
                     'tableLoadingOverlaySeleccionSesion'));
             break;
-        }
+            case 'divCuotasPaciente':
+                tablaId = 'tablaPacientesSeleccionCuota';
+                limpiarFiltros('filtrosPacienteCuotaContainer', () => renderPacientesTable(
+                    'tablaPacientesSeleccionCuota',
+                    'contadorPacientesSeleccionCuota',
+                    'paginationControlsSeleccionCuota',
+                    'selectDiagnosticosBuscarSeleccionCuota',
+                    'inputBuscarNombreSeleccionCuota',
+                    'inputBuscarCedulaSeleccionCuota',
+                    'selectActiveSeleccionCuota',
+                    ['btnSeleccionarPacienteCuotaModal'],
+                    'tableLoadingOverlaySeleccionCuota'
+                ));
+            break;
+            case 'divAgendaFijarseHorario':
+                tablaId = 'tablaPacientesSeleccionFijarseHorario';
+                limpiarFiltros('filtrosPacienteSeleccionContainerFijarseHorario', () => renderPacientesTable(
+                    'tablaPacientesSeleccionFijarseHorario',
+                    'contadorPacientesSeleccionFijarseHorario',
+                    'paginationControlsSeleccionFijarseHorario',
+                    'selectDiagnosticosBuscarSeleccionFijarseHorario',
+                    'inputBuscarNombreSeleccionFijarseHorario',
+                    'inputBuscarCedulaSeleccionFijarseHorario',
+                    'selectActiveSeleccionFijarseHorario',
+                    ['btnSeleccionarPacienteModalFijarseHorario'],
+                    'tableLoadingOverlaySeleccionFijarseHorario'
+                ));
+            break;
+            case 'divCuotas':
+                tablaId = 'tablaCuotas';
+                limpiarFiltros('filtrosCuotasContainer', () => {
+                    renderCuotaTable();
+                });
+            break;
+            }
     if (tablaId) { 
         try {
             let tablaBody = document.querySelector(`#${tablaId} tbody`);
@@ -85,17 +168,25 @@ function deseleccionarFilas(divId){
 }
 
 
-function limpiarFiltros(containerId,renderTable){
-        const filtrosContainer = document.getElementById(containerId);
-        const campos = filtrosContainer.querySelectorAll('input[type="text"], select');
-        campos.forEach(campo => {
-            if (campo.type === 'text') {
-                campo.value = '';
-            } else if (campo.tagName === 'SELECT') {
+function limpiarFiltros(containerId, renderTable) {
+    const filtrosContainer = document.getElementById(containerId);
+    const campos = filtrosContainer.querySelectorAll('input[type="text"], select');
+
+    const mesActual = new Date().getMonth() + 1;
+
+    campos.forEach(campo => {
+        if (campo.type === 'text') {
+            campo.value = '';
+        } else if (campo.tagName === 'SELECT') {
+            if (campo.id.startsWith('filtroMes')) {
+                campo.value = mesActual;
+            } else {
                 campo.selectedIndex = 0;
             }
-        });
-        renderTable();
+        }
+    });
+
+    renderTable();
 }
 
 

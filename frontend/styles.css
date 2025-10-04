@@ -5,7 +5,8 @@
     --light-grey: #B4B4B4;
     --text-color: #323232;
     --error-color: #dc3545; 
-    --white-text: #FFFFFF;     
+    --white-text: #FFFFFF; 
+       
 
     --nav-item-hover-bg: rgba(68, 138, 255, 0.1); 
     --active-nav-item-bg: var(--accent-blue);
@@ -148,19 +149,19 @@ body{
 }
 
 /* Media Queries para responsividad */
-@media (max-width: 576px) { /* Extra pequeños dispositivos (smartphones) */
+@media (max-width: 576px) { 
     #divLogin .card {
-        margin: 1rem; /* Menos margen en pantallas pequeñas */
-        padding: 2rem 1.5rem; /* Ajustar padding del card */
+        margin: 1rem;
+        padding: 2rem 1.5rem;
     }
     #divLogin .card .text-center img {
-        max-width: 200px; /* Logo más pequeño en móviles */
+        max-width: 200px; 
     }
     #divLogin .card h2 {
-        font-size: 1.75rem; /* Título un poco más pequeño */
+        font-size: 1.75rem; 
     }
     #divLogin .card .btn-primary {
-        font-size: 1rem; /* Botón con texto ligeramente más pequeño */
+        font-size: 1rem; 
     }
 }
 
@@ -351,7 +352,7 @@ body{
 
 /* Badge de Pacientes dentro de la celda - de agenda.js `badge bg-primary rounded-pill` */
 #tablaAgendaSemanal tbody td.clickable-schedule-cell .badge.bg-primary { 
-    background-color: var(--badge-bg) !important;
+    background-color: rgba(0, 0, 0, 0.8) !important; 
     color: var(--white-text); 
     font-size: 0.9em;
     padding: 0.5em 0.8em; 
@@ -517,6 +518,7 @@ body{
     color: var(--white-text) !important;
     transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
+
 .btn-primary:hover {
     background-color: var(--primary-blue) !important;
     border-color: var(--primary-blue) !important;
@@ -542,6 +544,7 @@ body{
     color: var(--white-text) !important;
     transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
+
 .btn-info:hover {
     background-color: var(--info-btn-hover-bg) !important;
     border-color: var(--info-btn-hover-bg) !important;
@@ -554,6 +557,7 @@ body{
     color: var(--text-color) !important; 
     transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
 }
+
 .btn-warning:hover {
     background-color: var(--warning-btn-hover-bg) !important;
     border-color: var(--warning-btn-hover-bg) !important;
@@ -636,14 +640,15 @@ body{
 }
 
 /* Contenedor de la tabla de pacientes */
-#divTablaPacientes {
-    background-color: white; 
+#divTablaPacientes,
+#divTablaCuotas {
+    background-color: white;
     border-color: var(--table-border-color);
-    border-radius: 0.75rem; 
-    overflow: hidden; 
-    margin-top: 1.5rem; 
+    border-radius: 0.75rem;
+    overflow-x: auto;
+    margin-top: 1.5rem;
     box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-    position: relative; 
+    position: relative;
 }
 
 .loading-overlay {
@@ -661,10 +666,22 @@ body{
     border-radius: 0.75rem; 
 }
 
-.loading-overlay .spinner-border {
+/* .loading-overlay .spinner-border {
     color: var(--accent-blue) !important; 
     width: 3rem;
     height: 3rem;
+} */
+
+.loading-image {
+    width: 60px;  /* Ajusta el tamaño de tu imagen según necesites */
+    height: 60px; /* Mantén el ancho y alto iguales para una forma cuadrada o circular */
+    animation: spin 1.5s linear infinite; /* Aplica la animación de giro */
+}
+
+/* Define la animación de giro */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }
 
 .loading-overlay p.text-primary {
@@ -672,39 +689,41 @@ body{
     font-weight: 500;
 }
 
+
+#tablaAgendaSemanal tbody td.table-cell-custom-color {
+    transition: background 300ms ease, color 300ms ease;
+}
+
 /* Tabla de Pacientes */
-#tablaPacientes {
-    border-color: var(--table-border-color); 
+#tablaPacientes,
+#tablaCuotas {
+    border-color: var(--table-border-color);
     margin-bottom: 0;
     width: 100%;
 }
 
-/* Encabezado de la Tabla de Pacientes */
-#tablaPacientes thead {
+#tablaPacientes thead,
+#tablaCuotas thead {
     background-color: var(--table-header-bg);
-    color: var(--table-header-text); 
+    color: var(--table-header-text);
     font-weight: 600;
 }
 
-#tablaPacientes thead th {
-    border-color: var(--table-border-color); 
+#tablaPacientes thead th,
+#tablaCuotas thead th {
+    border-color: var(--table-border-color);
     padding: 0.8rem 0.5rem;
-    text-align: center; 
+    text-align: center;
     vertical-align: middle;
-    color: var(--table-header-text); 
+    color: var(--table-header-text);
 }
 
-/* Cuerpo de la Tabla de Pacientes */
-#tablaPacientes tbody td {
-    border-color: var(--table-border-color); 
-    padding: 0.7rem 0.5rem; 
-    color: var(--text-color); 
+#tablaPacientes tbody td,
+#tablaCuotas tbody td {
+    border-color: var(--table-border-color);
+    padding: 0.7rem 0.5rem;
+    color: var(--text-color);
     vertical-align: middle;
-}
-
-#tablaPacientes tbody tr:hover {
-    background-color: var(--light-bg) !important; 
-    cursor: pointer;
 }
 
 #tablaPacientes tbody tr.table-active {
@@ -723,6 +742,41 @@ body{
     color: var(--light-grey) !important;
 }
 
+.table-pendiente {
+    background-color: #FFF3CD !important; /* Un amarillo pastel para indicar 'pendiente' */
+    color: #856404 !important;          /* Texto oscuro para legibilidad */
+    font-style: italic;                  /* Para distinguirlo de otros estados */
+}
+
+/* Pagada (Verde Suave) */
+.table-pagada {
+    background-color: #D4EDDA !important; 
+    color: #155724 !important;          
+}
+
+/* Atrasada (Rojo Suave) */
+.table-atrasada {
+    background-color: #F8D7DA !important; 
+    color: #721C24 !important;          
+    font-weight: 500;                    
+}
+
+/* Cancelada (Gris o Inactiva) */
+.table-cancelada {
+    background-color: var(--light-bg) !important;
+    color: var(--light-grey) !important;      
+    font-style: italic;
+}
+
+/* Esto se aplicará a todas las filas con estos estados */
+.table-pendiente:hover,
+.table-pagada:hover,
+.table-atrasada:hover,
+.table-cancelada:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05); 
+    transform: translateY(-1px);              
+    transition: all 0.2s ease-in-out;
+}
 
 .table-selected {
     background-color: var(--cell-clickable-bg) !important; 
@@ -734,7 +788,7 @@ body{
 
 .table-hover tbody tr.table-selected:hover {
     background-color: var(--cell-clickable-bg) !important; 
-    cursor: default; 
+    cursor: pointer; 
 }
 
 .table-selected td,
@@ -747,20 +801,14 @@ body{
     border-left: none !important; 
 }
 
-
-#tablaPacientesSeleccionSesion tbody tr{
+#tablaPacientes tbody tr,
+#tablaCuotas tbody tr,
+#tablaPacientesSeleccionSesion tbody tr,
+#tablaPacientesSeleccion tbody tr,
+#modalTablaSesiones tbody tr,
+#tablaPacientesSeleccionCuota tbody tr {
     cursor: pointer;
 }
-
-#tablaPacientesSeleccion tbody tr{
-    cursor: pointer;
-}
-
-#modalTablaSesiones tbody tr{
-    cursor: pointer;
-}
-
-
 
 /* Pie de tabla con contador y paginación */
 #divTablaPacientes .d-flex.justify-content-between.align-items-center {
@@ -861,23 +909,7 @@ body{
     box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
 }
 
-/* Estilo para el área de texto del editor TinyMCE */
-.tinymce-editor-target {
-    border: 1px solid var(--light-grey) !important; /* Borde gris claro */
-    border-radius: 0.25rem !important;
-    width: 100%; /* Asegura que ocupe todo el ancho disponible */
-    padding: 0.5rem; /* Añade un poco de espacio interno */
-    box-sizing: border-box; /* Incluye padding en el tamaño total */
-    resize: vertical; /* Permite redimensionar verticalmente */
-}
 
-.tinymce-editor-target:focus {
-    border-color: var(--accent-blue) !important; /* Borde azul de acento al enfocar */
-    box-shadow: 0 0 0 0.25rem rgba(68, 138, 255, 0.25) !important; /* Sombra al enfocar */
-    outline: none; /* Elimina el contorno predeterminado del navegador */
-}
-
-/* Pequeño ajuste para elementos de lista seleccionables en modales (como en agenda.js) */
 .list-group-item.active {
     background-color: var(--accent-blue) !important;
     border-color: var(--accent-blue) !important;
@@ -906,17 +938,14 @@ body{
     padding-bottom: 20px; 
 }
 
-/* El card principal del calendario: crucial para ajustar la altura a la pantalla */
+/* El card principal del calendario */
 #calendar {
-    position: relative; /* Necesario para posicionar correctamente el overlay de carga */
-    display: flex; /* Permite que el contenido del card (header, nombres de días, cuadrícula) se organice verticalmente */
+    position: relative;
+    display: flex;
     flex-direction: column;
-    /* Calcula la altura total del calendario basada en la altura de la ventana (vh)
-       y resta un valor estimado (120px) para el encabezado de tu página, márgenes, etc.
-       ¡Es muy importante que ajustes este valor (120px) para que se adapte perfectamente a tu layout! */
     height: calc(100vh - 120px); 
-    min-height: 500px; /* Altura mínima para asegurar que el calendario no se vuelva demasiado pequeño en pantallas cortas */
-    border-radius: 0.5rem; /* Bordes redondeados consistentes con shadow-sm */
+    min-height: 500px; 
+    border-radius: 0.5rem;
 }
 
 /* Asegura que el encabezado y los nombres de los días no se encojan */
@@ -928,12 +957,12 @@ body{
 /* La cuadrícula de los días del calendario: distribuye el espacio uniformemente */
 #calendar-grid {
     display: grid;
-    grid-template-columns: repeat(7, 1fr); /* 7 columnas de igual ancho */
-    grid-auto-rows: 1fr; /* ¡Clave! Hace que todas las filas tengan la misma altura, distribuyendo el espacio vertical restante */
-    flex-grow: 1; /* Permite que la cuadrícula ocupe todo el espacio vertical disponible dentro de #calendar */
-    overflow: hidden; /* Oculta cualquier contenido que se desborde si las celdas se vuelven muy pequeñas */
-    border-top: 1px solid var(--table-border-color); /* Borde superior para separar de los nombres de los días */
-    border-left: 1px solid var(--table-border-color); /* Borde izquierdo para la cuadrícula */
+    grid-template-columns: repeat(7, 1fr);
+    grid-auto-rows: 1fr; 
+    flex-grow: 1;
+    overflow: hidden; 
+    border-top: 1px solid var(--table-border-color);
+    border-left: 1px solid var(--table-border-color);
     cursor: pointer;
 }
 
@@ -941,79 +970,79 @@ body{
 .calendar-day {
     display: flex;
     flex-direction: column;
-    justify-content: flex-start; /* Alinea el contenido al inicio de la celda */
-    align-items: center; /* Centra el contenido horizontalmente */
-    border-right: 1px solid var(--table-border-color); /* Borde derecho */
-    border-bottom: 1px solid var(--table-border-color); /* Borde inferior */
-    padding: 2px; /* Reduce el padding para maximizar el espacio del contenido */
-    overflow: hidden; /* Importante para que el contenido no se salga */
+    justify-content: flex-start;
+    align-items: center;
+    border-right: 1px solid var(--table-border-color);
+    border-bottom: 1px solid var(--table-border-color);
+    padding: 2px;
+    overflow: hidden; 
     text-align: center;
-    font-size: 0.8em; /* Reduce el tamaño de la fuente general del día */
-    box-sizing: border-box; /* Asegura que padding y border no aumenten el tamaño de la celda */
+    font-size: 0.8em; 
+    box-sizing: border-box;
 }
 
 /* Colores y estilos para días del mes anterior/siguiente */
 .calendar-day.other-month {
-    background-color: #f9f9f9; /* Un color de fondo ligeramente diferente */
-    color: #b0b0b0; /* Texto más claro */
+    background-color: #f9f9f9;
+    color: #b0b0b0;
 }
 
 /* Estilos para el número del día */
 .calendar-day .day-number {
     font-weight: bold;
-    font-size: 1.2em; /* Número del día un poco más grande */
-    margin-bottom: 2px; /* Pequeño espacio debajo del número */
+    font-size: 1.2em; 
+    margin-bottom: 2px;
 }
 
 /* Estilos para el contenedor de sesiones dentro de cada día */
 .calendar-day .sessions-container {
-    flex-grow: 1; /* Permite que este contenedor ocupe el espacio restante en la celda */
+    flex-grow: 1; 
     display: flex;
     flex-direction: column;
-    justify-content: center; /* Centra las sesiones verticalmente */
+    justify-content: center; 
     align-items: center;
     width: 100%;
 }
 
 /* Estilos para el texto de conteo de sesiones */
 .calendar-day .session-count-text {
-    font-size: 0.7em; /* Fuente más pequeña para el conteo de sesiones */
+    font-size: 0.7em; 
     font-weight: 600;
     color: var(--primary-blue);
-    white-space: nowrap; /* Evita que el texto se rompa en varias líneas */
-    overflow: hidden; /* Oculta si el texto es demasiado largo */
-    text-overflow: ellipsis; /* Añade puntos suspensivos si el texto es muy largo */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 /* Estilos para los días con sesiones */
 .calendar-day.has-sessions {
-    background-color: var(--cell-clickable-bg); /* Color para resaltar días con sesiones */
+    background-color: var(--cell-clickable-bg); 
     cursor: pointer;
 }
 
 /* Estilos para el overlay de carga */
 #calendar-loading-overlay {
-    position: absolute; /* Absoluto respecto al contenedor #calendar */
+    position: absolute; 
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background-color: rgba(255, 255, 255, 0.8); /* Fondo semitransparente */
+    background-color: rgba(255, 255, 255, 0.8);
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
-    z-index: 10; /* Asegura que esté por encima del calendario */
+    z-index: 10;
     opacity: 0;
-    visibility: hidden; /* Oculto por defecto */
-    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out; /* Transición suave */
-    pointer-events: none; /* Permite clics a través cuando está oculto */
+    visibility: hidden; 
+    transition: opacity 0.3s ease-in-out, visibility 0.3s ease-in-out;
+    pointer-events: none;
 }
 
 #calendar-loading-overlay.show {
     opacity: 1;
     visibility: visible;
-    pointer-events: auto; /* Habilita interacción cuando es visible */
+    pointer-events: auto;
 }
 
 /* Estilos para el spinner y el texto de carga */
@@ -1044,27 +1073,30 @@ body{
 }
 
 
+#divCuotas .form-label {
+    font-weight: 500;
+    color: var(--text-color);
+    margin-bottom: 0.5rem;
+}
 
 
 
+/* .ql-editor img {
+    max-width: 400px; 
+    max-height: 450px; 
+    
+    
+    width: auto;
+    height: auto;
+    
+    margin: 0 auto;
+} */
 
+/* .ql-editor img {
 
+width: 600px;
 
+height: auto;
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+margin: 0 auto;
+}  */

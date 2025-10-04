@@ -4,6 +4,22 @@ import { showLoadingIndicator, hideLoadingIndicator, populateAllDiagnosticosSele
 import { mostrarConfirmacion, mostrarMensaje } from "./ui.js";
 import { renderFichaMedica, fetchPacienteById } from "./fichaMedica.js";
 
+
+function disableNombreDiagnosticoButtons(){
+    const btnModificarDiagnostico = document.getElementById('btnModificarNombreDiagnostico');
+    const btnEliminarDiagnostico = document.getElementById('btnEliminarNombreDiagnostico');
+    if (btnModificarDiagnostico) btnModificarDiagnostico.disabled = true;
+    if (btnEliminarDiagnostico) btnEliminarDiagnostico.disabled = true;
+}
+
+function enableNombreDiagnosticoButtons(){
+    const btnModificarDiagnostico = document.getElementById('btnModificarNombreDiagnostico');
+    const btnEliminarDiagnostico = document.getElementById('btnEliminarNombreDiagnostico');
+    if (btnModificarDiagnostico) btnModificarDiagnostico.disabled = false;
+    if (btnEliminarDiagnostico) btnEliminarDiagnostico.disabled = false;
+} 
+
+    
 async function fetchDiagnosticos() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/diagnosticos`,{
@@ -30,15 +46,6 @@ async function fetchDiagnosticos() {
 };
 
 function inicializarNombreDiagnostico(){
-    function disableNombreDiagnosticoButtons(){
-        const btnModificarDiagnostico = document.getElementById('btnModificarNombreDiagnostico');
-        if (btnModificarDiagnostico) btnModificarDiagnostico.disabled = true;
-    }
-    function enableNombreDiagnosticoButtons(){
-        const btnModificarDiagnostico = document.getElementById('btnModificarNombreDiagnostico');
-        if (btnModificarDiagnostico) btnModificarDiagnostico.disabled = false;
-    }  
-
     const tablaNombreDiagnosticosBody = document.querySelector('#tablaNombresDiagnosticos tbody');
     if (tablaNombreDiagnosticosBody) {
         tablaNombreDiagnosticosBody.addEventListener('click', (event) => {
@@ -58,16 +65,17 @@ function inicializarNombreDiagnostico(){
             }
         });
     }
-   // disableNombreDiagnosticoButtons();
     renderNombresDiagnosticosTable();
 };
 
 async function renderNombresDiagnosticosTable (){
-    showLoadingIndicator();
     const tablaNombreDiagnosticosBody = document.querySelector('#tablaNombresDiagnosticos tbody');
+    const tableLoadingOverlayDiagnostico = 'tableLoadingOverlayDiagnostico';
         if (!tablaNombreDiagnosticosBody) return;
-    
+
+        disableNombreDiagnosticoButtons();
         tablaNombreDiagnosticosBody.innerHTML = '';
+        showLoadingIndicator(tableLoadingOverlayDiagnostico);
     
         try {
             const nombresDiagnosticos = await fetchDiagnosticos();
@@ -84,15 +92,15 @@ async function renderNombresDiagnosticosTable (){
                 const row = tablaNombreDiagnosticosBody.insertRow();
                 row.dataset.id = nombreDiagnostico.id;
     
-                row.insertCell(0).textContent = nombreDiagnostico.id; 
-                row.insertCell(1).textContent = nombreDiagnostico.nombre;
+                // row.insertCell(0).textContent = nombreDiagnostico.id; 
+                row.insertCell(0).textContent = nombreDiagnostico.nombre;
     
             });
         } catch (error) {
             console.error('Error al renderizar la tabla de diagnosticos:', error);
             tablaNombreDiagnosticosBody.innerHTML = `<tr><td colspan="5" class="text-danger text-center">Error al cargar los diagnosticos: ${error.message}</td></tr>`;
         } finally {
-            hideLoadingIndicator();
+            hideLoadingIndicator(tableLoadingOverlayDiagnostico);
         }
 };
 
@@ -256,66 +264,59 @@ function inicializarAgregarModificarNombreDiagnostico(){
     }
 };
 
-// function inicializarEliminarNombreDiagnostico(){
-//     const btnEliminarDiagnostico = document.getElementById('btnEliminarNombreDiagnostico');
+function inicializarEliminarNombreDiagnostico(){
+    const btnEliminarDiagnostico = document.getElementById('btnEliminarNombreDiagnostico');
 
-//     if (btnEliminarDiagnostico) {
-//         btnEliminarDiagnostico.addEventListener('click', async (event) => {
-//             event.preventDefault(); 
-//             const confirmacion = await mostrarConfirmacion('¿Está seguro que desea eliminar este diagnostico?');
+    if (btnEliminarDiagnostico) {
+        btnEliminarDiagnostico.addEventListener('click', async (event) => {
+            event.preventDefault(); 
+            const confirmacion = await mostrarConfirmacion('¿Está seguro que desea eliminar este diagnostico?');
             
-//             if (!confirmacion) {
-//                 mostrarMensaje('Eliminación de diagnostico cancelada.', 'info');
-//                 return; 
-//             }
+            if (!confirmacion) {
+                mostrarMensaje('Eliminación de diagnostico cancelada.', 'info');
+                return; 
+            }
 
-//             const token = getAuthToken();
+            const token = getAuthToken();
 
-//             if (!token) {
-//                 console.error('No hay token de autenticación disponible. Redirigiendo al login.');
-//                 mostrarLogin();
-//                 return;
-//             }
-//             const selectedPacienteRow = document.querySelector('#tablaNombresDiagnosticos tbody tr.table-selected');
-//             const id = selectedPacienteRow.dataset.id;
+            if (!token) {
+                console.error('No hay token de autenticación disponible. Redirigiendo al login.');
+                mostrarLogin();
+                return;
+            }
+            const selectedPacienteRow = document.querySelector('#tablaNombresDiagnosticos tbody tr.table-selected');
+            const id = selectedPacienteRow.dataset.id;
 
-//             try {
-//                 const response = await fetch(`${API_BASE_URL}/api/diagnosticos/eliminarNombreDiagnostico/${id}`, {
-//                     method: 'DELETE',
-//                     headers: {
-//                         'Content-Type': 'application/json',
-//                         'Authorization': `Bearer ${token}`
-//                     },
-//                 });
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/diagnosticos/eliminarNombreDiagnostico/${id}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                });
 
-//                 if (!response.ok) {
-//                     if (response.status === 401 || response.status === 403) {
-//                         console.error('Error de autorización al eliminar nombre diagnostico. Token inválido o expirado. Cerrando sesión.');
-//                         return;
-//                     }
-//                     const errorData = await response.json();
-//                     throw new Error(errorData.message || `Error al eliminar diagnostico: ${response.statusText}`);
-//                 }
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        console.error('Error de autorización al eliminar nombre diagnostico. Token inválido o expirado. Cerrando sesión.');
+                        return;
+                    }
+                    const errorData = await response.json();
+                    throw new Error(errorData.message || `Error al eliminar diagnostico: ${response.statusText}`);
+                }
 
-//                // const result = await response.json();
-//                 mostrarMensaje('Diagnostico eliminado exitosamente.', 'success');
+               // const result = await response.json();
+                mostrarMensaje('Diagnostico eliminado exitosamente.', 'success');
+                renderNombresDiagnosticosTable();
+                populateAllDiagnosticosSelects();
 
-//                 renderNombresDiagnosticosTable();
-//                 populateAllDiagnosticosSelects();
-
-
-//             } catch (error) {
-//                 console.error('Error al eliminar nombre diagnostico:', error);
-//                 mostrarMensaje(error.message || 'Error al eliminar diagnostico.', 'danger');
-//             }
-//         });
-//     }
-
-
-
-
-
-// };
+            } catch (error) {
+                console.error('Error al eliminar nombre diagnostico:', error);
+                mostrarMensaje(error.message || 'Error al eliminar diagnostico.', 'danger');
+            }
+        });
+    }
+};
 
 function inicializarAgregarDiagnosticoPaciente(){
 const btnAgregarDiagnosticoPaciente = document.getElementById('btnAgregarDiagnosticoPaciente2');
@@ -488,5 +489,6 @@ export {
     renderNombresDiagnosticosTable,
     inicializarAgregarModificarNombreDiagnostico,
     inicializarAgregarDiagnosticoPaciente,
-    inicializarEliminarDiagnosticoPaciente
+    inicializarEliminarDiagnosticoPaciente,
+    inicializarEliminarNombreDiagnostico
  };

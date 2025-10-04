@@ -24,11 +24,6 @@ function isValidHora(horaString) {
         return false;
     }
 
-    // Expresión regular para el formato HH:MM o HH:MM:SS (24 horas)
-    // ^(?!$): Asegura que la cadena no esté vacía
-    // (?:2[0-3]|[01]?[0-9]): Horas de 00 a 23
-    // :[0-5][0-9]: Minutos de 00 a 59
-    // (:[0-5][0-9])?: Segundos opcionales de 00 a 59
     const regex = /^(?:2[0-3]|[01]?[0-9]):[0-5][0-9](:[0-5][0-9])?$/;
     return regex.test(horaString);
 }
@@ -43,6 +38,7 @@ async function getSesionesByAnioMes(req, res){
 
     const mesNum = parseInt(mes, 10); //En MySQL los meses van del 1 al 12 porque se sacan de la fecha bobo
     const anioNum = parseInt(anio, 10);
+    
 
     if (!isValidMes(mesNum)) {
         logger.warn(`Intento de obtener sesion con mes inválido: ${mes}`);
@@ -348,7 +344,55 @@ let { fecha, horaInicio, horaFin} = req.query;
     }
 };
 
+async function getSesionPorFisio(req,res){
+const { anio, mes, fisio } = req.query;
 
+    if (!mes || !anio || !fisio){
+        logger.warn('Intento de recuperar estadisticas con datos incompletos.');
+        return res.status(400).json({ message: 'Todos los datos son requeridos' });
+    }
+
+    const mesNum = parseInt(mes, 10); //En MySQL los meses van del 1 al 12 porque se sacan de la fecha bobo
+    const anioNum = parseInt(anio, 10);
+    const fisioNum = parseInt(fisio, 10);
+
+
+
+    if (!isValidMes(mesNum)) {
+        logger.warn(`Intento de obtener sesion con mes inválido: ${mes}`);
+        return res.status(400).json({ message: 'El mes no tiene un formato válido.' });
+    }
+
+    if (!isValidAnio(anioNum)) {
+        logger.warn(`Intento de obtener sesion con anio inválido: ${anio}`);
+        return res.status(400).json({ message: 'El anio no es correcto.' });
+    }
+
+    if(isNaN(fisioNum)){
+        logger.warn(`Intento de obtener estadisticas de sesion con idFisio invalido: ${fisioNum}`);
+        return res.status(400).json({ message: 'El id del fisio no es correcto.'});
+    }
+
+    try{
+
+        const [result] = await db.execute(
+            `SELECT s.*, p.nomyap AS nombrePaciente, u.nomyap AS nombreFisio
+             FROM sesion s
+             JOIN paciente p ON s.idPaciente = p.id
+             JOIN fisioterapeuta f ON s.idFisio = f.id
+             JOIN usuario u ON f.idUsuario = u.id
+             WHERE MONTH(fecha) = ? AND YEAR(fecha) = ? AND s.idFisio = ?`,
+            [mesNum, anioNum, fisioNum]
+        );
+    
+        res.json(result);
+
+    } catch (error) {
+        logger.error('Error en getSesionesPorFisio:', error.message);
+        logger.error(error.stack);
+        res.status(500).json({ message: 'Error interno del servidor al obtener las estadísticas de las sesiones.' });
+    }
+};
 
 
 
@@ -359,5 +403,6 @@ module.exports = {
     getSesion,
     addSesion,
     modifySesion,
-    deleteSesion
+    deleteSesion,
+    getSesionPorFisio
 };

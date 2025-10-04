@@ -7,7 +7,6 @@ function constructorWhereAndValues(filters) {
     let whereClause = 'WHERE 1=1';
     const values = [];
     if (filters.diagnosticoId && filters.diagnosticoId !== '') {
-        console.log('entro');
         whereClause += ' AND EXISTS (SELECT 1 FROM diagnostico d_filter JOIN nombrediagnostico nd_filter ON d_filter.idNombreDiagnostico = nd_filter.id WHERE d_filter.idPaciente = p.id AND nd_filter.id = ?)';
         values.push(filters.diagnosticoId);
     }
@@ -79,7 +78,7 @@ async function getAllPacientes(req, res) {
             LEFT JOIN
                 diagnostico d ON p.id = d.idPaciente
             LEFT JOIN
-                nombreDiagnostico nd ON d.idNombreDiagnostico = nd.id
+                nombrediagnostico nd ON d.idNombreDiagnostico = nd.id
             ${whereClause};
         `;
 
@@ -117,6 +116,10 @@ function isValidNomyap(nomyap) {
 }
 
 function isValidCedula(cedula) {
+    if (!cedula || cedula.trim() === '') {
+        return true;
+    }
+
     const cleanedCedula = cedula.replace(/\./g, '').replace(/-/g, '');
     return /^\d{8}$/.test(cleanedCedula);
 }
@@ -140,7 +143,7 @@ function isValidFechaNacimiento(fechaNacimiento, minEdad = 0) {
 async function createPaciente(req, res) {
     let { nomyap, cedula, fechaNacimiento, fechaCreacion, telefono, gmail, genero } = req.body;
 
-    if (!nomyap || !cedula || !fechaNacimiento || !telefono || !genero) {
+    if (!nomyap || !telefono || !genero) {
         logger.warn('Intento de crear paciente con datos incompletos.');
         console.log(req.body);
         return res.status(400).json({ message: 'Todos los campos son requeridos.' });
@@ -159,29 +162,46 @@ async function createPaciente(req, res) {
         logger.warn(`Intento de crear paciente con email inválido: ${gmail}`);
         return res.status(400).json({ message: 'El formato del email es inválido.' });
     }
-    
-    gmail = gmail.toLowerCase();
-
-    //VALIDAR TELEFONO
-    const cleanedTelefono = telefono.replace(/[^+\d]/g, '');
-    if (!cleanedTelefono.startsWith('+') || cleanedTelefono.length < 8 || !/^\+\d+$/.test(cleanedTelefono)) {
-        logger.warn(`Intento de crear paciente con formato de teléfono inválido después de limpieza: ${telefono}`);
-        return res.status(400).json({ message: 'El formato del teléfono es inválido. Debe comenzar con "+" seguido del código de país y el número, solo con dígitos (Ej: +59899123456).' });
+    if(!gmail){
+        gmail = null;
+    }else{
+        gmail = gmail.toLowerCase();
     }
-    telefono = cleanedTelefono; 
+
+     
+        const cleanedTelefono = telefono.replace(/[^+\d]/g, '');
+        if (!cleanedTelefono.startsWith('+') || cleanedTelefono.length < 8 || !/^\+\d+$/.test(cleanedTelefono)) {
+            logger.warn(`Intento de crear paciente con formato de teléfono inválido después de limpieza: ${telefono}`);
+            return res.status(400).json({ message: 'El formato del teléfono es inválido. Debe comenzar con "+" seguido del código de país y el número, solo con dígitos (Ej: +59899123456).' });
+        }
+        telefono = cleanedTelefono; 
+    
+    
     
     //VALIDAR CEDULA
     if (!isValidCedula(cedula)) {
         logger.warn(`Intento de crear paciente con cédula inválida: ${cedula}`);
         return res.status(400).json({ message: 'El formato de la cédula es inválido (debe ser de 8 dígitos).' });
     }
-    cedula = cedula.replace(/\./g, '').replace(/-/g, ''); //En realidad no la estoy guardando con puntos ni guiones, pero la limpio por si acaso
+     //En realidad no la estoy guardando con puntos ni guiones, pero la limpio por si acaso
+
+    if(!cedula){
+        cedula = null;
+    }else{
+        cedula = cedula.replace(/\./g, '').replace(/-/g, '');
+    }
+
+
 
     //VALIDAR FECHA DE NACIMIENTO
-    const MIN_AGE = 0;
-    if (!isValidFechaNacimiento(fechaNacimiento, MIN_AGE)) {
-        logger.warn(`Intento de crear paciente con fecha de nacimiento inválida o menor de ${MIN_AGE} años: ${fechaNacimiento}`);
-        return res.status(400).json({ message: `La fecha de nacimiento es inválida o el paciente es menor de ${MIN_AGE} años.` });
+    if(!fechaNacimiento){
+        fechaNacimiento = null;
+    }else{
+        const MIN_AGE = 0;
+        if (!isValidFechaNacimiento(fechaNacimiento, MIN_AGE)) {
+            logger.warn(`Intento de crear paciente con fecha de nacimiento inválida o menor de ${MIN_AGE} años: ${fechaNacimiento}`);
+            return res.status(400).json({ message: `La fecha de nacimiento es inválida o el paciente es menor de ${MIN_AGE} años.` });
+        }
     }
 
     try {
@@ -211,7 +231,7 @@ async function modifyPacienteById(req, res){
 let { nomyap, cedula, fechaNacimiento, telefono, gmail, genero } = req.body;
 const pacienteId = req.params.id;
 
-    if (!nomyap || !cedula || !fechaNacimiento || !telefono || !genero) {
+    if (!nomyap || !telefono || !genero) {
         logger.warn('Intento de modificar paciente con datos incompletos.');
         console.log(req.body);
         return res.status(400).json({ message: 'Todos los campos son requeridos. Menos el gmail' });
@@ -231,7 +251,11 @@ const pacienteId = req.params.id;
         return res.status(400).json({ message: 'El formato del email es inválido.' });
     }
     
-    gmail = gmail.toLowerCase();
+    if(!gmail){
+        gmail = null;
+    }else{
+        gmail = gmail.toLowerCase();
+    }
 
     //VALIDAR TELEFONO
     const cleanedTelefono = telefono.replace(/[^+\d]/g, '');
@@ -242,10 +266,14 @@ const pacienteId = req.params.id;
     telefono = cleanedTelefono; 
 
     //VALIDAR FECHA DE NACIMIENTO
-    const MIN_AGE = 0;
-    if (!isValidFechaNacimiento(fechaNacimiento, MIN_AGE)) {
-        logger.warn(`Intento de modificar paciente con fecha de nacimiento inválida o menor de ${MIN_AGE} años: ${fechaNacimiento}`);
-        return res.status(400).json({ message: `La fecha de nacimiento es inválida o el paciente es menor de ${MIN_AGE} años.` });
+    if(!fechaNacimiento){
+        fechaNacimiento = null;
+    }else{
+        const MIN_AGE = 0;
+        if (!isValidFechaNacimiento(fechaNacimiento, MIN_AGE)) {
+            logger.warn(`Intento de crear paciente con fecha de nacimiento inválida o menor de ${MIN_AGE} años: ${fechaNacimiento}`);
+            return res.status(400).json({ message: `La fecha de nacimiento es inválida o el paciente es menor de ${MIN_AGE} años.` });
+        }
     }
 
     //VALIDAR CEDULA
@@ -253,9 +281,12 @@ const pacienteId = req.params.id;
         logger.warn(`Intento de crear paciente con cédula inválida: ${cedula}`);
         return res.status(400).json({ message: 'El formato de la cédula es inválido (debe ser de 8 dígitos).' });
     }
-    cedula = cedula.replace(/\./g, '').replace(/-/g, ''); //En realidad no la estoy guardando con puntos ni guiones, pero la limpio por si acaso
-
-
+        
+    if(!cedula){
+        cedula = null;
+    }else{
+        cedula = cedula.replace(/\./g, '').replace(/-/g, '');
+    }
 
     try {
         const [result] = await db.execute(

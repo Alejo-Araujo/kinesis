@@ -10,7 +10,7 @@ async function getAllFisios(req,res){
         JOIN usuario u ON u.id = f.idUsuario
         ORDER BY u.nomyap ASC`,[]);
 
-        res.json(rows);
+        res.status(200).json(rows);
     } catch (error) {
         logger.error('Error en fisiosController.getAllFisios:', error.message);
         logger.error(error.stack);

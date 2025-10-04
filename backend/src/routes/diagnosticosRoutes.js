@@ -10,7 +10,7 @@ router.delete('/eliminarDiagnostico/:idDiagnostico', authenticateToken, diagnost
 
 router.put('/modificarNombreDiagnostico/:id', authenticateToken, diagnosticosController.modifyNombreDiagnosticoById);
 
-//router.delete('/eliminarNombreDiagnostico/:id', authenticateToken, diagnosticosController.eliminarNombreDiagnostico);
+router.delete('/eliminarNombreDiagnostico/:id', authenticateToken, diagnosticosController.eliminarNombreDiagnostico);
 
 
 

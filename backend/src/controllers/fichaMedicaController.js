@@ -76,6 +76,8 @@ async function updateDiagnosticoObservaciones(req, res) {
 
     // Se obtiene el HTML final después de la validación y posible modificación de las imágenes
     const finalHtml = dom.window.document.body.innerHTML;
+    console.log(finalHtml);
+
 
     if (!diagnosticoEntryId || typeof finalHtml !== 'string') {
         return res.status(400).json({ message: 'Datos inválidos para actualizar observaciones.' });
@@ -88,7 +90,6 @@ async function updateDiagnosticoObservaciones(req, res) {
         );
 
         if (result.affectedRows === 0) {
-            // Esto podría significar que el ID no existe o que las observaciones no cambiaron
             return res.status(404).json({ message: 'Registro de diagnóstico no encontrado o no se realizaron cambios.' });
         }
 

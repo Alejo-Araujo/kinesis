@@ -1,12 +1,13 @@
-//require('dotenv').config({ path: '../.env' }); //PARA EJECUTARLO MANUALMENTE
-require('dotenv').config({ path: './.env' }); //PARA EJECUTARLO CON NODEMON
+//require('dotenv').config({ path: '../.env' }); //PARA EJECUTARLO MANUALMENTE / DESARROLLO
+require('dotenv').config({ path: './.env' }); //PARA EJECUTARLO CON NODEMON / DESARROLLO
 
-console.log('DB_HOST:', process.env.DB_HOST);
-console.log('DB_USER:', process.env.DB_USER);
+console.log('DB_HOST:', process.env.DB_HOST); //DESARROLLO
+console.log('DB_USER:', process.env.DB_USER); //DESARROLLO
 const express = require('express');
 const app = express();
 app.disable('x-powered-by');
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 3000; //DESARROLLO 
+//const port = 50001; PRODUCCION
 const path = require('path');
 
 
@@ -17,7 +18,7 @@ const agendaRoutes = require('./routes/agendaRoutes.js');
 const uploadRoutes = require('./routes/uploadRoutes.js');
 const fisiosRoutes = require('./routes/fisiosRoutes.js');
 const calendarioRoutes = require('./routes/calendarioRoutes.js');
-
+const cuotasRoutes = require('./routes/cuotasRoutes.js')
 
 const  crearLogger  = require('../plugins/logger.plugin.js');
 const logger = crearLogger('server.js');
@@ -26,9 +27,19 @@ const logger = crearLogger('server.js');
 const fs = require('fs');     
 const multer = require('multer'); 
 
+const publicFilesDir = path.join(__dirname, '..', '..', 'public');
+
+
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use(express.json()); 
+
+app.get('/public/site.webmanifest', (req, res) => {
+    res.setHeader('Content-Type', 'application/manifest+json');
+    res.sendFile(path.join(publicFilesDir, 'site.webmanifest'));
+});
+
+app.use('/public', express.static(publicFilesDir));
 
 app.use((err, req, res, next) => {
     if (err instanceof multer.MulterError) {
@@ -58,6 +69,9 @@ app.use('/api/fisios', fisiosRoutes);
 
 //CALENDARIO
 app.use('/api/calendario', calendarioRoutes);
+
+//PARA CUOTAS
+app.use('/api/cuotas', cuotasRoutes);
 
 //PARA IMAGENES
 app.use('/api/public', uploadRoutes);

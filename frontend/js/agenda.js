@@ -2,6 +2,7 @@ import { API_BASE_URL } from './config.js';
 import { getAuthToken, mostrarLogin } from './login.js';
 import { mostrarMensaje, mostrarConfirmacion } from './ui.js';
 import { deseleccionarFilas } from './ui.js';
+import { showLoadingIndicator, hideLoadingIndicator } from './utils.js';
 
 const agendaDetailModalElement = document.getElementById('agendaDetailModal');
 const agendaDetailModal = new bootstrap.Modal(agendaDetailModalElement);
@@ -12,7 +13,11 @@ const modalAgregarPaciente = new bootstrap.Modal(modalElement);
 const modalElementFisio = document.getElementById('modalAgregarFisios');
 const modalAgregarFisio = new bootstrap.Modal(modalElementFisio);
 
+const modalFijarseHorarioPaciente = document.getElementById('selectPacienteFijarseHorarioModal');
+const modalFijarseHorarioPacienteElement = new bootstrap.Modal(modalFijarseHorarioPaciente);
 
+const modalFijarseHorario = document.getElementById('fijarseHorarioModal');
+const modalFijarseHorarioElement = new bootstrap.Modal(modalFijarseHorario);
 
 async function fetchHorariosCompletos(){
     const url = `${API_BASE_URL}/api/agenda/horariosCompletos`;
@@ -76,9 +81,12 @@ async function renderAgendaTable() {
 
     tableBody.innerHTML = '';
 
+    const tableLoadingOverlay = 'tableLoadingOverlayAgenda';
+    showLoadingIndicator(tableLoadingOverlay);
+
     try {
         const horariosRaw = await fetchHorariosCompletos();
-        if (horariosRaw.length === 0) {
+        if (!horariosRaw || horariosRaw.length === 0) {
             const row = tableBody.insertRow();
             const cell = row.insertCell(0);
             cell.colSpan = 7;
@@ -87,8 +95,21 @@ async function renderAgendaTable() {
             return;
         }
 
-        
+        // ---------- PREPARAR ESCALADO SEGÚN CANTIDAD DE PACIENTES ----------
+        const counts = horariosRaw.map(h => (h.pacientes && h.pacientes.length) ? h.pacientes.length : 0);
+        const rawMax = counts.length ? Math.max(...counts) : 1;
+        // scaleMax: for smoothing when todos los grupos son muy pequeños (evita que todo sea verde igual)
+        const scaleMax = Math.max(rawMax, 5); 
 
+        const getGradientColor = (count, max) => {
+            const fraction = Math.min(count / max, 1);
+            const hue = 120 - (120 * fraction); // 120° (verde) -> 0° (rojo)
+            const lightness = 55 - (15 * fraction); // baja un poco la luminosidad con más pacientes
+            // Usamos HSL con espacio moderno (hsl(h s% l%))
+            return { css: `hsl(${hue} 75% ${lightness}%)`, lightness };
+        };
+
+        // ---------- ORGANIZAR HORARIOS ----------
         const horariosPorDiaHora = {};
         horariosRaw.forEach(horario => { 
             if (!horariosPorDiaHora[horario.diaSemana]) {
@@ -99,27 +120,58 @@ async function renderAgendaTable() {
         });
 
         const horasUnicas = Array.from(new Set(horariosRaw.map(h => `${h.horaInicio}-${h.horaFin}`))).sort();
-
         const diasSemana = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
+
+        const formatTimeForDisplay = (timeString) => timeString.substring(0, 5);
 
         horasUnicas.forEach(horaKey => {
             const row = tableBody.insertRow();
             const cellHora = row.insertCell(0);
-            cellHora.textContent = horaKey;
+
+            const [horaInicio, horaFin] = horaKey.split('-');
+            cellHora.textContent = `${formatTimeForDisplay(horaInicio)} - ${formatTimeForDisplay(horaFin)}`;
+            cellHora.classList.add('first-column-schedule-cell');
 
             diasSemana.forEach(dia => {
                 const cell = row.insertCell();
                 const horarioEnCelda = horariosPorDiaHora[dia] && horariosPorDiaHora[dia][horaKey];
 
                 if (horarioEnCelda) {
-                   
+                    const count = (horarioEnCelda.pacientes && horarioEnCelda.pacientes.length) ? horarioEnCelda.pacientes.length : 0;
+                    const { css: bgColor, lightness } = getGradientColor(count, scaleMax);
 
                     cell.innerHTML = `
                         <div class="d-flex flex-column align-items-center">
-                            <span class="badge bg-primary rounded-pill">${horarioEnCelda.pacientes.length || 0} Pacientes</span>
+                            <span class="badge bg-primary rounded-pill">${count} Pacientes</span>
                         </div>
                     `;
-                    cell.classList.add('table-cell-custom-color', 'clickable-schedule-cell'); 
+                    cell.classList.add('table-cell-custom-color', 'clickable-schedule-cell');
+
+                    // estilos inline dinámicos para el fondo y texto (asegura compatibilidad)
+                    cell.style.background = bgColor;
+                    // elegir color de texto según claridad del fondo
+                    if (lightness < 50) {
+                        cell.style.color = 'white';
+                    } else {
+                        cell.style.color = ''; // se deja el color por defecto (var(--text-color))
+                    }
+
+                    // ajustar el badge para que contraste bien
+                    const badge = cell.querySelector('.badge');
+                    if (badge) {
+                        if (lightness < 50) {
+                            // fondo claro del badge cuando el fondo es oscuro
+                            badge.style.backgroundColor = 'rgba(255,255,255,0.15)';
+                            badge.style.color = 'white';
+                            badge.style.fontWeight = '600';
+                        } else {
+                            // fondo oscuro por defecto (como tenías)
+                            badge.style.backgroundColor = 'rgba(0,0,0,0.8)';
+                            badge.style.color = 'white';
+                            badge.style.fontWeight = '600';
+                        }
+                    }
+
                     cell.addEventListener('click', () => {
                         showAgendaDetailModal(horarioEnCelda);
                     });
@@ -138,13 +190,20 @@ async function renderAgendaTable() {
         cell.colSpan = 7;
         cell.textContent = 'Error al cargar la agenda. Por favor, intente de nuevo.';
         cell.classList.add('text-danger', 'text-center');
+    } finally {
+        hideLoadingIndicator(tableLoadingOverlay);
     }
 }
+
 
 function showAgendaDetailModal(horario) {
     agendaDetailModalElement.dataset.currentHorario = JSON.stringify(horario);
 
-    document.getElementById('modalHorario').textContent = `${horario.horaInicio} - ${horario.horaFin}`;
+    const formatTimeForDisplay = (timeString) => {
+            return timeString.substring(0, 5);
+    };
+
+    document.getElementById('modalHorario').textContent = `${formatTimeForDisplay(horario.horaInicio)} - ${formatTimeForDisplay(horario.horaFin)}`;
     document.getElementById('modalDia').textContent = horario.diaSemana;
     document.getElementById('modalCantidad').textContent = horario.pacientes.length || 0;
 
@@ -177,8 +236,8 @@ function showAgendaDetailModal(horario) {
         horario.fisioterapeutas.forEach(fisio => {
             const li = document.createElement('li');
             li.classList.add('list-group-item', 'list-group-item-action');
-            li.textContent = fisio.nombreFisio; // Asumiendo que el nombre del fisio se llama 'nombreFisio'
-            li.setAttribute('data-id', fisio.idFisioterapeuta); // Almacena el ID del fisio
+            li.textContent = fisio.nombreFisio; 
+            li.setAttribute('data-id', fisio.idFisioterapeuta); 
             li.addEventListener('click', (event) => handleSelection(event.currentTarget, 'fisio'));
             modalFisioterapeutasList.appendChild(li);
         });
@@ -212,6 +271,7 @@ function handleSelection(clickedLi, type) {
 
 
 function inicializarAgendaDetailModalListeners() {
+    
     agendaDetailModalElement.addEventListener('hidden.bs.modal', () => {
         
         delete agendaDetailModalElement.dataset.currentHorario;
@@ -223,6 +283,26 @@ function inicializarAgendaDetailModalListeners() {
         document.getElementById('modalFisioterapeutasList').innerHTML = '';
         document.getElementById('noParticipantsMessage').classList.add('d-none');
         document.getElementById('noFisioterapeutasMessage').classList.add('d-none');
+
+    });
+
+    modalElement.addEventListener('show.bs.modal', function () {
+    deseleccionarFilas('divAgenda');
+    });
+
+    modalFijarseHorarioPaciente.addEventListener('show.bs.modal', function () {
+    deseleccionarFilas('divAgendaFijarseHorario');
+    });
+
+    modalFijarseHorario.addEventListener('show.bs.modal', function () {
+        document.getElementById('selectedPacienteNameFijarseHorario').textContent = '';
+        document.getElementById('selectedPacienteNameFijarseHorario').value = '';
+
+        document.getElementById('selectedPacienteIdFijarseHorario').value = '';
+        document.getElementById('tablaFijarseHorarioBody').innerHTML = '';
+
+        document.getElementById('contadorHorariosFijarseHorario').textContent = '0';
+
 
     });
 
@@ -644,9 +724,125 @@ function inicializarAgendaDetailModalListeners() {
             mostrarMensaje('Error: No hay un horario seleccionado en el modal.', 'danger');
         }
     });
-    
+
+    document.getElementById('btnSeleccionarPacienteModalFijarseHorario').addEventListener('click', async () => {        
+        const selectedPacienteRow = document.querySelector('#tablaPacientesSeleccionFijarseHorario tbody tr.table-selected');
+        if(selectedPacienteRow){
+            const pacienteId = selectedPacienteRow.dataset.pacienteId; 
+            if(pacienteId){            
+                const token = getAuthToken();
+                    if (!token) {
+                        mostrarMensaje('No hay token de autenticación disponible. Redirigiendo al login.','danger');
+                        mostrarLogin();
+                        return;
+                    }
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/api/pacientes/${pacienteId}`, {
+                            method: 'GET',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Authorization': `Bearer ${token}`
+                            }
+                        });
+                        if (!response.ok) {
+                            if (response.status === 401) {
+                                mostrarLogin();
+                                return; 
+                            }
+                        const errorData = await response.json();
+                        throw new Error(errorData.message || `Error al obtener paciente: ${response.statusText}`);
+                    }
+                        const data = await response.json();
+                        document.getElementById('selectedPacienteIdFijarseHorario').value = data.id;
+                        document.getElementById('selectedPacienteNameFijarseHorario').value = data.nomyap;
+
+                        modalFijarseHorarioPacienteElement.hide();
+                      
+                    } catch (error) {
+                        console.error('Error en fetchPacienteById:', error);
+                        mostrarMensaje(error.message || 'Error al cargar los datos del paciente.', 'danger');
+                        return null;
+                    }     
+            }
+        }
+    });
+
+    document.getElementById('btnFijarseHorarioPaciente').addEventListener('click', async () => {
+        const pacienteId = document.getElementById('selectedPacienteIdFijarseHorario').value;
+        showLoadingIndicator('tableLoadingOverlayFijarseHorarios');
+
+
+        if(!pacienteId){
+            mostrarMensaje('Por favor, seleccione un paciente para fijarse sus horarios.', 'warning');
+            return;
+        }
+
+        const token = getAuthToken();
+        if(!token){
+            mostrarMensaje('No hay token de autenticación disponible. Redirigiendo al login.','danger');
+            mostrarLogin();
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/agenda/fijarseHorario?pacienteId=${pacienteId}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Error al encontrar horarios.');
+            }
+
+            const horarios = await response.json();
+
+            mostrarMensaje('Horarios encontrados exitosamente!', 'success');
+            renderFijarseHorariosTable(horarios);
+
+        } catch (error) {
+            console.error('Error al encontrar horarios:', error);
+            mostrarMensaje(error.message || 'Ocurrió un error al encontrar los horarios.', 'danger');
+            hideLoadingIndicator('tableLoadingOverlayFijarseHorarios');
+        }
+    });
 }
 
+async function renderFijarseHorariosTable(horarios){
+    const tableBody = document.getElementById('tablaFijarseHorarioBody');
+    tableBody.innerHTML = '';
+
+   // await new Promise(resolve => setTimeout(resolve, 1000));
+
+    document.getElementById('contadorHorariosFijarseHorario').textContent = horarios.length;
+    
+    if(!horarios || horarios.length === 0){
+        const row = tableBody.insertRow();
+        const cell = row.insertCell(0);
+        cell.colSpan = 4;
+        cell.textContent = 'No se encontraron horarios para este paciente.';
+        cell.classList.add('text-center', 'text-muted');
+        hideLoadingIndicator('tableLoadingOverlayFijarseHorarios');
+        return;
+    }
+
+    horarios.forEach(horario => {
+        const row = tableBody.insertRow();
+        const cellDia = row.insertCell(0);
+        const cellHoraInicio = row.insertCell(1);
+        const cellHoraFin = row.insertCell(2);
+
+        cellDia.textContent = horario.diaSemana;
+        cellHoraInicio.textContent = horario.horaInicio.slice(0, 5);
+        cellHoraFin.textContent = horario.horaFin.slice(0, 5);
+    });
+
+    hideLoadingIndicator('tableLoadingOverlayFijarseHorarios');
+
+}
 
 function inicializarAddHorarioModal() {
     const addHorarioModalElement = document.getElementById('addHorarioModal');
@@ -722,13 +918,14 @@ function inicializarAddHorarioModal() {
 }
 
 
+
+
+
 function inicializarAgenda() {
     renderAgendaTable();
     inicializarAgendaDetailModalListeners();
     inicializarAddHorarioModal();
-    modalElement.addEventListener('show.bs.modal', function () {
-    deseleccionarFilas('divAgenda');
-});
+    
 }
 
 

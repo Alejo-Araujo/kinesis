@@ -1,6 +1,6 @@
 import { API_BASE_URL } from './config.js';
 import { getAuthToken, mostrarLogin } from './login.js';
-import { mostrarMensaje, mostrarConfirmacion } from './ui.js';
+import { mostrarMensaje, mostrarConfirmacion, deseleccionarFilas } from './ui.js';
 
 const calendarGrid = document.getElementById('calendar-grid');
 const currentMonthYearHeader = document.getElementById('currentMonthYear');
@@ -13,6 +13,14 @@ const formAgregarSesion = document.getElementById('sessionForm');
 
 const modalElementSesionesDias = document.getElementById('sesionDiaModal');
 const modalSesionesDiasInstance = new bootstrap.Modal(modalElementSesionesDias);
+
+
+
+const modalElementEstadisticasSesion = document.getElementById('modalEstadisticasSesiones');
+const modalInstanceEstadisticasSesion = new bootstrap.Modal(modalElementEstadisticasSesion);
+const formEstadisticas = document.getElementById('formFiltroSesiones');
+
+
 
 
 let currentDate = new Date();
@@ -186,7 +194,11 @@ function showModalElementSesionesDias(sesiones, fecha){
     const btnEliminarSesion = document.getElementById('btnEliminarSesion');
 
     modalTablaSesionesBody.innerHTML = '';
-    modalDiaSesion.textContent = fecha;
+
+    const partesFecha = fecha.split('-'); 
+    const fechaBien = `${partesFecha[2]}-${partesFecha[1]}-${partesFecha[0]}`;
+    modalDiaSesion.textContent = fechaBien;
+    
     btnModificarSesion.disabled = true;
     btnEliminarSesion.disabled = true;
 
@@ -206,10 +218,10 @@ function showModalElementSesionesDias(sesiones, fecha){
             row.dataset.horaFin = sesion.horaFin; 
             
             const horaInicioCell = row.insertCell();
-            horaInicioCell.textContent = sesion.horaInicio;
+            horaInicioCell.textContent = sesion.horaInicio.slice(0, 5);
 
             const horaFinCell = row.insertCell();
-            horaFinCell.textContent = sesion.horaFin;
+            horaFinCell.textContent = sesion.horaFin.slice(0, 5);
 
             const fisioterapeutaCell = row.insertCell();
             fisioterapeutaCell.textContent = sesion.nombreFisio;
@@ -238,7 +250,56 @@ function showModalElementSesionesDias(sesiones, fecha){
         });
     }
     
-}      
+}
+
+function showModalElementSesionesEstadisticas(sesiones){
+    const modalTablaSesionesBody = document.getElementById('modalTablaSesionesEstadisticasBody');
+    const modalTablaSesiones = document.getElementById('modalTablaSesionesEstadisticas');
+    const noSesionesMensaje = document.getElementById('noSesionesMensajeEstadisticas');
+    const contador = document.getElementById('contadorSesionesEstadisticas');
+   
+    modalTablaSesionesBody.innerHTML = '';
+
+    if (sesiones.length === 0) {
+        modalTablaSesiones.style.display = 'none';
+        noSesionesMensaje.style.display = 'block'; 
+        contador.textContent = 0;
+        return;
+    } else {
+        modalTablaSesiones.style.display = 'table';
+        noSesionesMensaje.style.display = 'none'; 
+        contador.textContent = sesiones.length;
+
+        sesiones.forEach(sesion => {
+            const row = modalTablaSesionesBody.insertRow(); 
+
+            row.dataset.fecha = sesion.fecha;
+            row.dataset.horaInicio = sesion.horaInicio;
+            row.dataset.horaFin = sesion.horaFin; 
+            
+            const fecha = sesion.fecha.split('T')[0] || sesion.fecha.substring(0, 10);;
+            const partesFecha = fecha.split('-'); 
+            const fechaBien = `${partesFecha[2]}-${partesFecha[1]}-${partesFecha[0]}`;
+
+            const fechaCell = row.insertCell();
+            fechaCell.textContent = fechaBien;
+
+            const horaInicioCell = row.insertCell();
+            horaInicioCell.textContent = sesion.horaInicio.slice(0, 5);
+
+            const horaFinCell = row.insertCell();
+            horaFinCell.textContent = sesion.horaFin.slice(0, 5);
+
+            const fisioterapeutaCell = row.insertCell();
+            fisioterapeutaCell.textContent = sesion.nombreFisio;
+
+            const pacienteCell = row.insertCell();
+            pacienteCell.textContent = sesion.nombrePaciente;
+
+        });
+    }
+    
+}
 
 
 function inicializarCalendarioListeners(){
@@ -257,10 +318,15 @@ function inicializarCalendarioListeners(){
         formAgregarSesion.classList.remove('was-validated');
     });
 
-    
-const modalTablaSesionesBody = document.getElementById('modalTablaSesionesBody');
-const modalTablaSesiones = document.getElementById('modalTablaSesiones');
-const noSesionesMensaje = document.getElementById('noSesionesMensaje');
+    modalElementEstadisticasSesion.addEventListener('show.bs.modal', (event) => {
+        document.getElementById('modalTablaSesionesEstadisticasBody').innerHTML = '';
+        formEstadisticas.reset();
+        formEstadisticas.classList.remove('was-validated');
+       
+    });
+
+
+
 const modalDiaSesion = document.getElementById('modalDiaSesion'); 
 const btnGuardarSesion = document.getElementById('saveSessionBtn');
 const btnModificarSesion = document.getElementById('btnModificarSesion');
@@ -275,12 +341,21 @@ const selectFisioSesion = document.getElementById('selectFisiosSesion');
 const selectPacienteSesionId = document.getElementById('selectedPacienteId');
 const selectPacienteSesionName = document.getElementById('selectedPacienteName');
 const tituloAgregarSesionModal = document.getElementById('sessionDetailModalLabel');
+
 const selectPacienteModalSesion = document.getElementById('selectPacienteModalSesion');
 const selectPacienteModalSesionInstance = new bootstrap.Modal(selectPacienteModalSesion);
 
+    selectPacienteModalSesion.addEventListener('show.bs.modal', () => {
+        deseleccionarFilas('divAgendaPersonal');
+    })
     
     btnAgregarSesion.addEventListener('click', (event) => {
-        inputFechaAgregarSesion.value = modalDiaSesion.textContent; 
+        
+        const partesFecha = modalDiaSesion.textContent.split('-'); 
+        const fechaBien = `${partesFecha[2]}-${partesFecha[1]}-${partesFecha[0]}`;
+
+        inputFechaAgregarSesion.value = fechaBien;
+
         inputHoraInicioSesion.value = '';
         inputHoraFinSesion.value = '';
         selectFisioSesion.value = '';
@@ -400,7 +475,10 @@ const selectPacienteModalSesionInstance = new bootstrap.Modal(selectPacienteModa
                             }
         
                             // const result = await response.json();
-                            mostrarMensaje(`Sesión agregada exitosamente. El ${sesionData.fecha}, desde las ${sesionData.horaInicio} hasta las ${sesionData.horaFin}`, 'success');
+                            const mostrarFechaPartes = sesionData.fecha.split('-'); 
+                            const fechaMostrar = `${mostrarFechaPartes[2]}-${mostrarFechaPartes[1]}-${mostrarFechaPartes[0]}`;
+                            
+                            mostrarMensaje(`Sesión agregada exitosamente. El ${fechaMostrar}, desde las ${sesionData.horaInicio} hasta las ${sesionData.horaFin}`, 'success');
         
                             sessionDetailModal.hide();
                             formAgregarSesion.reset();
@@ -558,6 +636,54 @@ const selectPacienteModalSesionInstance = new bootstrap.Modal(selectPacienteModa
                 }  
     });
 
+    const btnVerEstadisticas = document.getElementById('btnVerSesionesEstadisticas');
+    btnVerEstadisticas.addEventListener('click', async (event) => {
+        event.preventDefault();
+        if (!formEstadisticas.checkValidity()) {
+            formEstadisticas.classList.add('was-validated'); 
+            return;
+        }
+
+
+        const token = getAuthToken();
+        if (!token) {
+            mostrarMensaje('No hay token de autenticación disponible. Redirigiendo al login.', 'danger');
+            mostrarLogin();
+            return;
+        }
+
+        const mes = document.getElementById('selectMesEstadisticas').value;
+        const anio = document.getElementById('selectAniosEstadisticas').value;
+        const fisio = document.getElementById('selectFisiosEstadisticas').value;
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/calendario/sesionPorFisio?anio=${anio}&mes=${mes}&fisio=${fisio}`, {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                    }
+            });
+
+            if (!response.ok) {
+                if (response.status === 401 || response.status === 403) {
+                    mostrarMensaje('Error de autorización al obtener las estadisticas por sesión. Token inválido o expirado. Cerrando sesión.', 'danger');
+                    mostrarLogin();
+                    return;
+                }
+                const errorData = await response.json();
+                throw new Error(errorData.message || `Error al obtener las estadisticas por sesión: ${response.statusText}`);
+            }
+            const data = await response.json();         
+            formEstadisticas.reset();
+            formEstadisticas.classList.remove('was-validated');
+            showModalElementSesionesEstadisticas(data);
+
+        } catch (error) {
+            console.error('Error al obtener las estadisticas por sesión:', error);
+            mostrarMensaje(error.message || 'Error al obtener las estadisticas por sesión:', 'danger');
+        }
+    });
 }
 
 function inicializarCalendario() {

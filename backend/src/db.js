@@ -3,12 +3,23 @@ const mysql = require('mysql2/promise');
 const  crearLogger  = require('../plugins/logger.plugin.js');
 const logger = crearLogger('db.js');
 
+// const dbConfig = {
+//     host: process.env.DB_HOST,
+//     user: process.env.DB_USER,
+//     password: process.env.DB_PASSWORD,
+//     database: process.env.DB_NAME,
+//     port: process.env.DB_PORT,
+//     waitForConnections: true,
+//     connectionLimit: 10,
+//     queueLimit: 0
+// };
+
 const dbConfig = {
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    port: process.env.DB_PORT,
+    host: 'localhost',
+    user: 'root',
+    password: '',
+    database: 'kinesis',
+    port: 3306,
     waitForConnections: true,
     connectionLimit: 10,
     queueLimit: 0

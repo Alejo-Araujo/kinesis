@@ -4,4 +4,8 @@ logs
 
 node_modules/
 
+public
 
+authMiddleware.js
+
+authController.js

@@ -39,15 +39,16 @@ async function getAllHorariosCompletos(req, res){
              GROUP_CONCAT(DISTINCT CONCAT(p.id, ':', p.nomyap) SEPARATOR '||') AS pacientes_raw,
              GROUP_CONCAT(DISTINCT CONCAT(f.id, ':', u.nomyap) SEPARATOR '||') AS fisios_raw
              FROM grupo g
-             LEFT JOIN grupoFisioterapeuta gf ON g.diaSemana = gf.diaSemana AND g.horaInicio = gf.horaInicio AND g.horaFin = gf.horaFin AND gf.fechaBaja IS NULL
+             LEFT JOIN grupofisioterapeuta gf ON g.diaSemana = gf.diaSemana AND g.horaInicio = gf.horaInicio AND g.horaFin = gf.horaFin AND gf.fechaBaja IS NULL
              LEFT JOIN fisioterapeuta f ON f.id = gf.idFisio
              LEFT JOIN usuario u ON u.id = f.idUsuario
-             LEFT JOIN grupoPaciente gp ON g.diaSemana = gp.diaSemana AND g.horaInicio = gp.horaInicio AND g.horaFin = gp.horaFin AND gp.fechaBaja IS NULL
+             LEFT JOIN grupopaciente gp ON g.diaSemana = gp.diaSemana AND g.horaInicio = gp.horaInicio AND g.horaFin = gp.horaFin AND gp.fechaBaja IS NULL
              LEFT JOIN paciente p ON p.id = gp.idPaciente
              WHERE g.fechaBaja IS NULL
              GROUP BY g.diaSemana, g.horaInicio, g.horaFin
              ORDER BY FIELD(g.diaSemana, 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'), g.horaInicio;`,
         );
+        
         const processedHorarios = horariosRows.map(row => ({
             idHorarioFrontend: `${row.diaSemana}-${row.horaInicio}-${row.horaFin}`, 
             diaSemana: row.diaSemana,
@@ -59,7 +60,8 @@ async function getAllHorariosCompletos(req, res){
         
         res.json(processedHorarios);
     } catch (error) {
-        logger.error('Error al obtener los horarios:', error);
+        logger.error('Error al obtener los horarios:', error.message);
+        logger.error(error.stack);
         res.status(500).json({ message: 'Error interno del servidor al obtener los horarios.' });
     }
 };
@@ -97,10 +99,10 @@ async function getHorarioByCompositeKey(req, res) {
              GROUP_CONCAT(DISTINCT CONCAT(p.id, ':', p.nomyap) SEPARATOR '||') AS pacientes_raw,
              GROUP_CONCAT(DISTINCT CONCAT(f.id, ':', u.nomyap) SEPARATOR '||') AS fisios_raw
              FROM grupo g
-             LEFT JOIN grupoFisioterapeuta gf ON g.diaSemana = gf.diaSemana AND g.horaInicio = gf.horaInicio AND g.horaFin = gf.horaFin AND gf.fechaBaja IS NULL
+             LEFT JOIN grupofisioterapeuta gf ON g.diaSemana = gf.diaSemana AND g.horaInicio = gf.horaInicio AND g.horaFin = gf.horaFin AND gf.fechaBaja IS NULL
              LEFT JOIN fisioterapeuta f ON f.id = gf.idFisio
              LEFT JOIN usuario u ON u.id = f.idUsuario
-             LEFT JOIN grupoPaciente gp ON g.diaSemana = gp.diaSemana AND g.horaInicio = gp.horaInicio AND g.horaFin = gp.horaFin AND gp.fechaBaja IS NULL
+             LEFT JOIN grupopaciente gp ON g.diaSemana = gp.diaSemana AND g.horaInicio = gp.horaInicio AND g.horaFin = gp.horaFin AND gp.fechaBaja IS NULL
              LEFT JOIN paciente p ON p.id = gp.idPaciente
              WHERE g.diaSemana = ? AND g.horaInicio = ? AND g.horaFin = ?
              GROUP BY g.diaSemana, g.horaInicio, g.horaFin;`;
@@ -194,7 +196,6 @@ let { diaSemana, horaInicio, horaFin } = req.body;
              WHERE diaSemana = ? AND horaInicio = ? AND horaFin = ? AND fechaBaja IS NOT NULL`,
             [null, diaSemana, horaInicio, horaFin]
         );
-        console.log(result.affectedRows)
         if(result.affectedRows === 0 ){
 
 
@@ -225,169 +226,493 @@ let { diaSemana, horaInicio, horaFin } = req.body;
     }
 };
 
+// async function agregarPacienteGrupo(req, res){
+// let { diaSemana, horaInicio, horaFin, idPaciente } = req.body;
 
-async function agregarPacienteGrupo(req, res){
-let { diaSemana, horaInicio, horaFin, idPaciente } = req.body;
+//     if (!diaSemana || !horaInicio || !horaFin || !idPaciente) {
+//         logger.warn('Intento de agregar paciente a grupo con datos incompletos.');
+//         console.log(req.body);
+//         return res.status(400).json({ message: 'Todos los datos son requeridos' });
+//     }
 
-    if (!diaSemana || !horaInicio || !horaFin || !idPaciente) {
-        logger.warn('Intento de agregar paciente a grupo con datos incompletos.');
-        console.log(req.body);
-        return res.status(400).json({ message: 'Todos los datos son requeridos' });
-    }
+//     //VALIDAR DIA
+//     if (!isValidDiaSemana(diaSemana)) {
+//         logger.warn(`Intento de agregar paciente a grupo con dia de semana invalido: ${diaSemana}`);
+//         return res.status(400).json({ message: 'El dia de la semana no tiene un formato válido.' });
+//     }
 
-    //VALIDAR DIA
-    if (!isValidDiaSemana(diaSemana)) {
-        logger.warn(`Intento de agregar paciente a grupo con dia de semana invalido: ${diaSemana}`);
-        return res.status(400).json({ message: 'El dia de la semana no tiene un formato válido.' });
-    }
-
-    //VALIDAR HORARIOS
-    if (!isValidHora(horaInicio)) {
-        logger.warn(`Intento de agregar paciente a grupo con hora de inicio invalida: ${horaInicio}`);
-        return res.status(400).json({ message: 'El formato de la hora de inicio es inválido.' });
-    }
+//     //VALIDAR HORARIOS
+//     if (!isValidHora(horaInicio)) {
+//         logger.warn(`Intento de agregar paciente a grupo con hora de inicio invalida: ${horaInicio}`);
+//         return res.status(400).json({ message: 'El formato de la hora de inicio es inválido.' });
+//     }
     
-    if (!isValidHora(horaFin)) {
-        logger.warn(`Intento de agregar paciente a grupo con hora de fin invalida: ${horaFin}`);
-        return res.status(400).json({ message: 'El formato de la hora de fin es inválido.' });
-    }
+//     if (!isValidHora(horaFin)) {
+//         logger.warn(`Intento de agregar paciente a grupo con hora de fin invalida: ${horaFin}`);
+//         return res.status(400).json({ message: 'El formato de la hora de fin es inválido.' });
+//     }
 
 
 
-    try {
-        const [result] = await db.execute(
-            `UPDATE grupopaciente SET
-             fechaBaja = ?
-             WHERE diaSemana = ? AND horaInicio = ? AND horaFin = ? AND idPaciente = ? AND fechaBaja IS NOT NULL`,
-            [null, diaSemana, horaInicio, horaFin, idPaciente]
-        );
+//     try {
+//         const [result] = await db.execute(
+//             `UPDATE grupopaciente SET
+//              fechaBaja = ?
+//              WHERE diaSemana = ? AND horaInicio = ? AND horaFin = ? AND idPaciente = ? AND fechaBaja IS NOT NULL`,
+//             [null, diaSemana, horaInicio, horaFin, idPaciente]
+//         );
       
-        if(result.affectedRows === 0 ){
+//         if(result.affectedRows === 0 ){
         
             
-            await db.execute(
-            `INSERT INTO grupopaciente 
-            (diaSemana, horaInicio, horaFin, idPaciente, fechaBaja)
-            VALUES (?, ?, ?, ?, ?)`,
-            [diaSemana, horaInicio, horaFin, idPaciente, null]
-             );
+//             await db.execute(
+//             `INSERT INTO grupopaciente 
+//             (diaSemana, horaInicio, horaFin, idPaciente, fechaBaja)
+//             VALUES (?, ?, ?, ?, ?)`,
+//             [diaSemana, horaInicio, horaFin, idPaciente, null]
+//              );
 
-            await db.execute(
-            `UPDATE paciente SET
-            activo = 1
-            WHERE id = ?`,
-            [idPaciente]
-             );
+//             await db.execute(
+//             `UPDATE paciente SET
+//             activo = 1
+//             WHERE id = ?`,
+//             [idPaciente]
+//              );
 
+//              const [cuotaRows] = await db.execute(
+//                 `UPDATE cuota c SET
+//                 c.monto = (SELECT monto
+//                     FROM tarifagrupo tg
+//                     WHERE tg.cantidadDias = (SELECT COUNT(*)
+//                                             FROM grupopaciente
+//                                             WHERE idPaciente = ? AND fechaBaja IS NULL)
+//                 )
+//                 WHERE c.idPaciente = ? AND
+//                 c.mes = MONTH(CURDATE()) AND
+//                 c.anio = YEAR(CURDATE()) AND
+//                 c.fechaBaja IS NULL AND
+//                 c.fechaPago IS NULL AND
+//                 (SELECT COUNT(*)
+//                 FROM grupopaciente gp
+//                 WHERE gp.idPaciente = c.idPaciente AND gp.fechaBaja IS NULL) > 0`,
+//                 [idPaciente, idPaciente]
+//                 );
+
+//                 if(cuotaRows.affectedRows === 0){
+//                 const [estaCuotaBaja] = await db.execute(
+//                     `UPDATE cuota 
+//                     SET fechaBaja = NULL, 
+//                     monto = (SELECT monto
+//                             FROM tarifagrupo tg
+//                             WHERE tg.cantidadDias = (SELECT COUNT(*)
+//                                                 FROM grupopaciente
+//                                                 WHERE idPaciente = ? AND fechaBaja IS NULL))
+//                     WHERE idPaciente = ? AND 
+//                     mes = MONTH(CURDATE()) AND 
+//                     anio = YEAR(CURDATE()) AND 
+//                     fechaBaja IS NOT NULL`, 
+//                     [idPaciente, idPaciente]);
+                
+
+//                 if(estaCuotaBaja.affectedRows === 0){
+//                 await db.execute(
+//                     `INSERT INTO cuota (idPaciente, mes, anio, monto)
+//                         SELECT 
+//                             ? AS idPaciente,
+//                             MONTH(CURDATE()) AS mes,
+//                             YEAR(CURDATE()) AS anio,
+//                             tg.monto
+//                         FROM tarifagrupo tg
+//                         WHERE tg.cantidadDias = 1
+//                         AND NOT EXISTS (
+//                             SELECT 1
+//                             FROM cuota c
+//                             WHERE c.idPaciente = ?
+//                             AND c.mes = MONTH(CURDATE())
+//                             AND c.anio = YEAR(CURDATE())
+//                         );`,
+//                     [idPaciente, idPaciente]
+//                 );
+//             }
+//             }
              
-        logger.log(`Paciente agregado al grupo exitosamente`);
-        res.status(200).json({ message: 'Paciente agregado exitosamente.', pacienteId: idPaciente });
-        }else{
+//         logger.log(`Paciente agregado al grupo exitosamente`);
+//         res.status(200).json({ message: 'Paciente agregado exitosamente.', pacienteId: idPaciente });
+//         }else{
 
-            await db.execute(
-            `UPDATE paciente SET
-            activo = 1
-            WHERE id = ?`,
-            [idPaciente]
-             );
+//             await db.execute(
+//             `UPDATE paciente SET
+//             activo = 1
+//             WHERE id = ?`,
+//             [idPaciente]
+//              );
+
+
+//              const [cuotaRows2] = await db.execute(
+//                 `UPDATE cuota c SET
+//                 c.monto = (SELECT monto
+//                     FROM tarifagrupo tg
+//                     WHERE tg.cantidadDias = (SELECT COUNT(*)
+//                                             FROM grupopaciente
+//                                             WHERE idPaciente = ? AND fechaBaja IS NULL)
+//                 )
+//                 WHERE c.idPaciente = ? AND
+//                 c.mes = MONTH(CURDATE()) AND
+//                 c.anio = YEAR(CURDATE()) AND
+//                 c.fechaBaja IS NULL AND
+//                 c.fechaPago IS NULL AND
+//                 (SELECT COUNT(*)
+//                 FROM grupopaciente gp
+//                 WHERE gp.idPaciente = c.idPaciente AND gp.fechaBaja IS NULL) > 0`,
+//                 [idPaciente, idPaciente]
+//                 );
+
+//             if(cuotaRows2.affectedRows === 0){
+
+//                 const [estaCuotaBaja] = await db.execute(
+//                     `UPDATE cuota 
+//                     SET fechaBaja = NULL, 
+//                     monto = (SELECT monto
+//                             FROM tarifagrupo tg
+//                             WHERE tg.cantidadDias = (SELECT COUNT(*)
+//                                                 FROM grupopaciente
+//                                                 WHERE idPaciente = ? AND fechaBaja IS NULL))
+//                     WHERE idPaciente = ? AND 
+//                     mes = MONTH(CURDATE()) AND 
+//                     anio = YEAR(CURDATE()) AND 
+//                     fechaBaja IS NOT NULL`, 
+//                     [idPaciente, idPaciente]);
+
+//                     if(estaCuotaBaja.affectedRows === 0){
+//                         await db.execute(
+//                         `INSERT INTO cuota (idPaciente, mes, anio, monto)
+//                         SELECT 
+//                             ? AS idPaciente,
+//                             MONTH(CURDATE()) AS mes,
+//                             YEAR(CURDATE()) AS anio,
+//                             tg.monto
+//                         FROM tarifagrupo tg
+//                         WHERE tg.cantidadDias = 1
+//                         AND NOT EXISTS (
+//                             SELECT 1
+//                             FROM cuota c
+//                             WHERE c.idPaciente = ?
+//                             AND c.mes = MONTH(CURDATE())
+//                             AND c.anio = YEAR(CURDATE())
+//                         );`,
+//                         [idPaciente,idPaciente]
+//                     );
+//                     }
 
 
 
-        logger.log(`Paciente agregado al grupo exitosamente`);
-        res.status(201).json({ message: 'Paciente agregado exitosamente.', pacienteId: result.insertId });
-        }
+
+                
+//             }
+
+
+//         logger.log(`Paciente agregado al grupo exitosamente`);
+//         res.status(201).json({ message: 'Paciente agregado exitosamente.', pacienteId: result.insertId });
+//         }
         
 
-    } catch (error) {
+//     } catch (error) {
 
-        if(error.code === 'ER_DUP_ENTRY'){
-            return res.status(409).json({ message: 'El paciente ya se encuentra en este grupo.' });
-        }
+//         if(error.code === 'ER_DUP_ENTRY'){
+//             return res.status(409).json({ message: 'El paciente ya se encuentra en este grupo.' });
+//         }
         
-        logger.error('Error al agregar paciente al grupo en la base de datos:', error.message);
-        logger.error(error.stack);
+//         logger.error('Error al agregar paciente al grupo en la base de datos:', error.message);
+//         logger.error(error.stack);
 
-        res.status(500).json({ message: 'Error interno del servidor al agregar paciente al grupo.' });
-    }
-};
+//         res.status(500).json({ message: 'Error interno del servidor al agregar paciente al grupo.' });
+//     }
+// };
 
-async function eliminarPacienteGrupo(req, res){
-let { diaSemana, horaInicio, horaFin, idPaciente } = req.body;
+// async function eliminarPacienteGrupo(req, res){
+// let { diaSemana, horaInicio, horaFin, idPaciente } = req.body;
 
-    if (!diaSemana || !horaInicio || !horaFin || !idPaciente) {
-        logger.warn('Intento de eliminar paciente del grupo con datos incompletos.');
-        console.log(req.body);
-        return res.status(400).json({ message: 'Todos los datos son requeridos' });
-    }
+//     if (!diaSemana || !horaInicio || !horaFin || !idPaciente) {
+//         logger.warn('Intento de eliminar paciente del grupo con datos incompletos.');
+//         console.log(req.body);
+//         return res.status(400).json({ message: 'Todos los datos son requeridos' });
+//     }
 
-    //VALIDAR DIA
-    if (!isValidDiaSemana(diaSemana)) {
-        logger.warn(`Intento de eliminar paciente del grupo con dia de semana invalido: ${diaSemana}`);
-        return res.status(400).json({ message: 'El dia de la semana no tiene un formato válido.' });
-    }
+//     //VALIDAR DIA
+//     if (!isValidDiaSemana(diaSemana)) {
+//         logger.warn(`Intento de eliminar paciente del grupo con dia de semana invalido: ${diaSemana}`);
+//         return res.status(400).json({ message: 'El dia de la semana no tiene un formato válido.' });
+//     }
 
-    //VALIDAR HORARIOS
-    if (!isValidHora(horaInicio)) {
-        logger.warn(`Intento de eliminar paciente del grupo con hora de inicio invalida: ${horaInicio}`);
-        return res.status(400).json({ message: 'El formato de la hora de inicio es inválido.' });
-    }
+//     //VALIDAR HORARIOS
+//     if (!isValidHora(horaInicio)) {
+//         logger.warn(`Intento de eliminar paciente del grupo con hora de inicio invalida: ${horaInicio}`);
+//         return res.status(400).json({ message: 'El formato de la hora de inicio es inválido.' });
+//     }
     
-    if (!isValidHora(horaFin)) {
-        logger.warn(`Intento de eliminar paciente del grupo con hora de fin invalida: ${horaFin}`);
-        return res.status(400).json({ message: 'El formato de la hora de fin es inválido.' });
-    }
+//     if (!isValidHora(horaFin)) {
+//         logger.warn(`Intento de eliminar paciente del grupo con hora de fin invalida: ${horaFin}`);
+//         return res.status(400).json({ message: 'El formato de la hora de fin es inválido.' });
+//     }
 
+
+//     try {
+//         const [result] = await db.execute(
+//             `UPDATE grupopaciente SET
+//              fechaBaja = CURDATE()
+//              WHERE diaSemana = ? AND horaInicio = ? AND horaFin = ? AND idPaciente = ? AND fechaBaja IS NULL`,
+//             [diaSemana, horaInicio, horaFin, idPaciente]
+//         );
+      
+//         if(result.affectedRows === 0 ){
+
+//         await db.execute(
+//         `UPDATE paciente p SET
+//         p.activo = 0
+//         WHERE p.id = ? AND
+//         (SELECT COUNT(*)
+//         FROM grupopaciente gp
+//         WHERE gp.idPaciente = p.id AND gp.fechaBaja IS NULL) = 0`,
+//         [idPaciente]
+//         );
+
+//         await db.execute(
+//         `UPDATE cuota c SET
+//         c.fechaBaja = CURDATE()
+//         WHERE c.idPaciente = ? AND
+//         c.mes = MONTH(CURDATE()) AND
+//         c.anio = YEAR(CURDATE()) AND
+//         c.fechaBaja IS NULL AND
+//         (SELECT COUNT(*)
+//         FROM grupopaciente gp
+//         WHERE gp.idPaciente = c.idPaciente AND gp.fechaBaja IS NULL) = 0`,
+//         [idPaciente]
+//         );
+
+        
+        
+//         logger.log(`Paciente no encontrado o ya eliminado al grupo exitosamente`);
+//         res.status(200).json({ message: 'Paciente eliminado exitosamente.', pacienteId: idPaciente });
+//         }else{
+
+//         await db.execute(
+//         `UPDATE paciente p SET
+//         p.activo = 0
+//         WHERE p.id = ? AND
+//         (SELECT COUNT(*)
+//         FROM grupopaciente gp
+//         WHERE gp.idPaciente = p.id AND gp.fechaBaja IS NULL) = 0`,
+//         [idPaciente]
+//         );
+
+//         await db.execute(
+//         `UPDATE cuota c SET
+//         c.fechaBaja = CURDATE()
+//         WHERE c.idPaciente = ? AND
+//         c.mes = MONTH(CURDATE()) AND
+//         c.anio = YEAR(CURDATE()) AND
+//         c.fechaBaja IS NULL AND
+//         (SELECT COUNT(*)
+//         FROM grupopaciente gp
+//         WHERE gp.idPaciente = c.idPaciente AND gp.fechaBaja IS NULL) = 0`,
+//         [idPaciente]
+//         );
+
+//         await db.execute(
+//         `UPDATE cuota c SET
+//         c.monto = (SELECT monto
+//             FROM tarifagrupo tg
+//             WHERE tg.cantidadDias = (SELECT COUNT(*)
+//                                       FROM grupopaciente
+//                                       WHERE idPaciente = ? AND fechaBaja IS NULL)
+//         )
+//         WHERE c.idPaciente = ? AND
+//         c.mes = MONTH(CURDATE()) AND
+//         c.anio = YEAR(CURDATE()) AND
+//         c.fechaBaja IS NULL AND
+//         c.fechaPago IS NULL AND
+//         (SELECT COUNT(*)
+//         FROM grupopaciente gp
+//         WHERE gp.idPaciente = c.idPaciente AND gp.fechaBaja IS NULL) > 0`,
+//         [idPaciente,idPaciente]
+//         );
+
+
+//         logger.log(`Paciente eliminado del grupo exitosamente`);
+//         res.status(201).json({ message: 'Paciente eliminado exitosamente.', pacienteId: result.insertId });
+//         }
+        
+
+//     } catch (error) {
+
+//         logger.error('Error al eliminar paciente del grupo en la base de datos:', error.message);
+//         logger.error(error.stack);
+
+//         res.status(500).json({ message: 'Error interno del servidor al eliminar paciente del grupo.' });
+//     }
+// };
+
+function validarDatosGrupo(diaSemana, horaInicio, horaFin, idPaciente) {
+    if (!diaSemana || !horaInicio || !horaFin || !idPaciente) {
+        return { valido: false, mensaje: 'Todos los datos son requeridos.' };
+    }
+    if (!isValidDiaSemana(diaSemana)) {
+        return { valido: false, mensaje: 'El día de la semana no es válido.' };
+    }
+    if (!isValidHora(horaInicio)) {
+        return { valido: false, mensaje: 'La hora de inicio es inválida.' };
+    }
+    if (!isValidHora(horaFin)) {
+        return { valido: false, mensaje: 'La hora de fin es inválida.' };
+    }
+    return { valido: true };
+}
+
+async function recalcularCuotaPaciente(db, idPaciente) {
+    // Si la cuota esta activa, se le actualiza el monto
+    const [result] = await db.execute(`
+        UPDATE cuota c
+        SET c.monto = (
+            SELECT tg.monto
+            FROM tarifagrupo tg
+            WHERE tg.cantidadDias = (
+                SELECT COUNT(*) FROM grupopaciente
+                WHERE idPaciente = ? AND fechaBaja IS NULL
+            )
+        )
+        WHERE c.idPaciente = ?
+          AND c.mes = MONTH(CURDATE())
+          AND c.anio = YEAR(CURDATE())
+          AND c.fechaBaja IS NULL
+          AND c.fechaPago IS NULL;
+    `, [idPaciente, idPaciente]);
+
+    // Si la cuota esta inactiva se reactiva
+    if(result.affectedRows === 0) {
+        const [result2] = await db.execute(`
+            UPDATE cuota c
+            SET fechaBaja = NULL,
+            fechaPago = NULL, 
+            descripcion = null,
+            metodoPago = 'NoEspecificado',
+                monto = (
+                    SELECT tg.monto
+                    FROM tarifagrupo tg
+                    WHERE tg.cantidadDias = 1)
+            WHERE c.idPaciente = ?
+            AND c.mes = MONTH(CURDATE())
+            AND c.anio = YEAR(CURDATE())
+            AND c.fechaBaja IS NOT NULL;
+        `, [idPaciente]);
+
+        // Si no tiene cuota se le crea una nuev
+        if(result2.affectedRows === 0) {
+        await db.execute(`
+            INSERT INTO cuota (idPaciente, mes, anio, monto)
+            SELECT ?, MONTH(CURDATE()), YEAR(CURDATE()), tg.monto
+            FROM tarifagrupo tg
+            WHERE tg.cantidadDias = (
+                SELECT COUNT(*) FROM grupopaciente
+                WHERE idPaciente = ? AND fechaBaja IS NULL
+            )
+            AND NOT EXISTS (
+                SELECT 1 FROM view_cuota_estado vc
+                WHERE vc.idPaciente = ?
+                AND vc.mes = MONTH(CURDATE())
+                AND vc.anio = YEAR(CURDATE())
+                AND vc.estado IN ('Pendiente','Atrasada','Pagada')
+            );
+        `, [idPaciente, idPaciente, idPaciente]);
+        }
+    }
+}
+
+async function agregarPacienteGrupo(req, res) {
+    const { diaSemana, horaInicio, horaFin, idPaciente } = req.body;
+
+    const validacion = validarDatosGrupo(diaSemana, horaInicio, horaFin, idPaciente);
+    if (!validacion.valido) {
+        logger.warn(validacion.mensaje);
+        return res.status(400).json({ message: validacion.mensaje });
+    }
 
     try {
-        console.log(diaSemana, horaInicio, horaFin, idPaciente);
-        const [result] = await db.execute(
-            `UPDATE grupopaciente SET
-             fechaBaja = CURDATE()
-             WHERE diaSemana = ? AND horaInicio = ? AND horaFin = ? AND idPaciente = ? AND fechaBaja IS NULL`,
-            [diaSemana, horaInicio, horaFin, idPaciente]
-        );
-      
-        if(result.affectedRows === 0 ){
+        // Reactivar grupo si estaba dado de baja
+        const [updateResult] = await db.execute(`
+            UPDATE grupopaciente
+            SET fechaBaja = NULL
+            WHERE diaSemana = ? AND horaInicio = ? AND horaFin = ? AND idPaciente = ? AND fechaBaja IS NOT NULL
+        `, [diaSemana, horaInicio, horaFin, idPaciente]);
 
-        await db.execute(
-        `UPDATE paciente p SET
-        p.activo = 0
-        WHERE p.id = ? AND
-        (SELECT COUNT(*)
-        FROM grupopaciente gp
-        WHERE gp.idPaciente = p.id AND gp.fechaBaja IS NULL) = 0`,
-        [idPaciente]
-        );
-        
-        logger.log(`Paciente no encontrado o ya eliminado al grupo exitosamente`);
-        res.status(200).json({ message: 'Paciente eliminado exitosamente.', pacienteId: idPaciente });
-        }else{
-
-        await db.execute(
-        `UPDATE paciente p SET
-        p.activo = 0
-        WHERE p.id = ? AND
-        (SELECT COUNT(*)
-        FROM grupopaciente gp
-        WHERE gp.idPaciente = p.id AND gp.fechaBaja IS NULL) = 0`,
-        [idPaciente]
-        );
-
-
-
-        logger.log(`Paciente eliminado del grupo exitosamente`);
-        res.status(201).json({ message: 'Paciente eliminado exitosamente.', pacienteId: result.insertId });
+        if (updateResult.affectedRows === 0) {
+            await db.execute(`
+                INSERT INTO grupopaciente (diaSemana, horaInicio, horaFin, idPaciente, fechaBaja)
+                VALUES (?, ?, ?, ?, NULL)
+            `, [diaSemana, horaInicio, horaFin, idPaciente]);
         }
-        
+
+        await db.execute(`UPDATE paciente SET activo = 1 WHERE id = ?`, [idPaciente]);
+
+        await recalcularCuotaPaciente(db, idPaciente);
+
+        logger.log('Paciente agregado al grupo exitosamente');
+        return res.status(200).json({ message: 'Paciente agregado exitosamente.', pacienteId: idPaciente });
 
     } catch (error) {
-
-        logger.error('Error al eliminar paciente del grupo en la base de datos:', error.message);
-        logger.error(error.stack);
-
-        res.status(500).json({ message: 'Error interno del servidor al eliminar paciente del grupo.' });
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(409).json({ message: 'El paciente ya se encuentra en este grupo.' });
+        }
+        logger.error('Error al agregar paciente al grupo:', error.message);
+        return res.status(500).json({ message: 'Error interno al agregar paciente al grupo.' });
     }
-};
+}
+
+async function eliminarPacienteGrupo(req, res) {
+    const { diaSemana, horaInicio, horaFin, idPaciente } = req.body;
+
+    const validacion = validarDatosGrupo(diaSemana, horaInicio, horaFin, idPaciente);
+    if (!validacion.valido) {
+        logger.warn(validacion.mensaje);
+        return res.status(400).json({ message: validacion.mensaje });
+    }
+
+    try {
+        await db.execute(`
+            UPDATE grupopaciente
+            SET fechaBaja = CURDATE()
+            WHERE diaSemana = ? AND horaInicio = ? AND horaFin = ? AND idPaciente = ? AND fechaBaja IS NULL
+        `, [diaSemana, horaInicio, horaFin, idPaciente]);
+
+        // Si ya no está en ningún grupo → desactivar paciente y dar de baja cuota
+        await db.execute(`
+            UPDATE paciente p
+            SET p.activo = 0
+            WHERE p.id = ?
+              AND (SELECT COUNT(*) FROM grupopaciente gp WHERE gp.idPaciente = p.id AND gp.fechaBaja IS NULL) = 0
+        `, [idPaciente]);
+
+        // Si todavía tiene otros grupos → recalcular cuota
+        await recalcularCuotaPaciente(db, idPaciente);
+
+        await db.execute(`
+            UPDATE cuota c
+            SET c.fechaBaja = CURDATE()
+            WHERE c.idPaciente = ?
+              AND c.mes = MONTH(CURDATE())
+              AND c.anio = YEAR(CURDATE())
+              AND c.fechaBaja IS NULL
+              AND (SELECT COUNT(*) FROM grupopaciente gp WHERE gp.idPaciente = c.idPaciente AND gp.fechaBaja IS NULL) = 0
+        `, [idPaciente]);
+
+
+        logger.log('Paciente eliminado del grupo exitosamente');
+        return res.status(200).json({ message: 'Paciente eliminado exitosamente.', pacienteId: idPaciente });
+
+    } catch (error) {
+        logger.error('Error al eliminar paciente del grupo:', error);
+        return res.status(500).json({ message: 'Error interno al eliminar paciente del grupo.' });
+    }
+}
 
 async function agregarFisioGrupo(req, res){
 let { diaSemana, horaInicio, horaFin, idFisio } = req.body;
@@ -567,6 +892,42 @@ let { diaSemana, horaInicio, horaFin } = req.body;
     }
 };
 
+async function getHorariosForPaciente(req, res) {
+    const { pacienteId } = req.query;
+    logger.log(`Solicitud para obtener horarios del paciente con ID: ${pacienteId}`);
+
+    if (!pacienteId) {
+        logger.warn('Intento de obtener horarios para paciente sin ID.');
+        return res.status(400).json({ message: 'El ID del paciente es requerido.' });
+    }
+
+    const idPacienteNum = parseInt(pacienteId, 10);
+    if (isNaN(idPacienteNum) || idPacienteNum <= 0) {
+        logger.warn(`Intento de obtener horarios para paciente con ID inválido: ${pacienteId}`);
+        return res.status(400).json({ message: 'El ID del paciente debe ser un número entero positivo.' });
+    }
+
+    try {
+        const [rows] = await db.execute(
+            `SELECT gp.diaSemana, gp.horaInicio, gp.horaFin
+             FROM grupopaciente gp
+             WHERE gp.idPaciente = ? AND gp.fechaBaja IS NULL
+             ORDER BY 
+                FIELD(gp.diaSemana, 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo'),
+                gp.horaInicio`,
+            [idPacienteNum]
+        );
+
+       logger.log(`Horarios obtenidos exitosamente para el paciente con ID: ${idPacienteNum}`);
+       res.status(200).json(rows);
+
+   } catch (error) {
+       
+       logger.error('Error al obtener horarios para el paciente:', error.message);
+       logger.error(error.stack);
+       res.status(500).json({ message: 'Error interno del servidor al obtener horarios para el paciente.' });
+   }
+};
 
 module.exports = {
     getAllHorariosCompletos,
@@ -576,5 +937,6 @@ module.exports = {
     eliminarPacienteGrupo,
     agregarFisioGrupo,
     eliminarFisioGrupo,
-    eliminarGrupo
+    eliminarGrupo,
+    getHorariosForPaciente
 }
