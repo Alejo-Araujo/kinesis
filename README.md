@@ -1,10 +1,34 @@
-Este es mi primer trabajo, empecé sabiendo un poco de js, html y css. Mientras fui haciendo la aplicación aprendí node.js.
-Hay muchas cosas a mejorar:
-- Dividir un poco más las responsabilidades.
-- Reutilizar código, más que nada en el index, hay varios modals de elegir paciente que en escencia son lo mismo.
-- Mejor nombramiento de variables y demás.
-- Estructuré el código de distintas maneras, ya que mientras más iba a aprendiendo, iba cambiando como lo construía
+Aplicación Web - Gestión de Clínica de Fisioterapia
 
-Se utilizó mucho la IA, aunque no lo veo como algo negativo, me hubiera llevado mucho más tiempo sino la hubiera usado.
-Personalmente creo que bien usada es muy útil, lo importante es no dejarse llevar y entender que sirve para ayudar con el código repetitivo, 
-te ayuda a aprender y entender nuevos conceptos.
+Este es mi primer proyecto de desarrollo web, es una aplicación para gestionar pacientes y la dinámica de una clínica de fisioterapia.  
+Comencé con conocimientos básicos de **HTML, CSS y JavaScript**, y durante el desarrollo aprendí Node.js.
+
+Características principales
+- Gestión de pacientes ABMC.
+- Manejos de fichas médicas e historias clínicas.
+- Gestión de sesiones.
+- Manejo de agenda semanal.
+- Organización y manejo de la facturación
+
+Tecnologías utilizadas
+- Frontend: HTML, CSS, JavaScript y uso de bootstrap 5.0
+- Backend: Node.js
+- Base de datos: MySQL  
+- IA como apoyo: utilizada para acelerar tareas repetitivas, aprender nuevos conceptos y mejorar la escritura de código.  
+
+Uso de Inteligencia Artificial
+La IA fue una herramienta clave en este proyecto.  
+- Cómo la usé: Automatizar código repetitivo, explicación de conceptos nuevos, estrategias de programación, ayuda en frente a lo desconocido.
+- Reflexión personal: considero que la IA es muy útil siempre que se use con criterio, entendiendo el código y aprovechándola como apoyo en el aprendizaje.  
+
+Cosas a mejorar
+- Dividir mejor las responsabilidades entre módulos.  
+- Reutilizar más el código (ejemplo: modales de selección de paciente).  
+- Mejorar el nombramiento de variables y la consistencia del estilo de código.  
+- Mantener una estructura más uniforme a medida que el proyecto crece. Cuando empecé,
+no sabía casi nada de node.js y me faltaba mucho conocimiento de js, por lo que el estilo de programación fue cambiando a medida que aprendía.  
+
+Demo:
+Por razones de seguridad, no están subidos los archivos necesarios para poder ejecutar la aplicación, sin embargo, adjunto link de un video del
+funcionamiento de la misma (por razones de privacidad y seguridad es necesario pedir acceso antes de acceder al video).
+https://drive.google.com/file/d/1M2hFk-x9az_9vhyx4OBg0TUMqqeR2XQT/view?usp=sharing
