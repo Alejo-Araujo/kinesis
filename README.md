@@ -6,7 +6,7 @@ Comencé con conocimientos básicos de **HTML, CSS y JavaScript**, y durante el 
 Características principales
 - Gestión de pacientes ABMC.
 - Manejos de fichas médicas e historias clínicas.
-- Gestión de sesiones.
+- Gestión de sesiones privadas.
 - Manejo de agenda semanal.
 - Organización y manejo de la facturación
 
