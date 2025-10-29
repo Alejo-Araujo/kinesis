@@ -30,5 +30,5 @@ no sabía casi nada de node.js y me faltaba mucho conocimiento de js, por lo que
 
 Demo:
 Por razones de seguridad, no están subidos los archivos necesarios para poder ejecutar la aplicación, sin embargo, adjunto link de un video del
-funcionamiento de la misma (por razones de privacidad y seguridad es necesario pedir acceso antes de acceder al video).
+funcionamiento de la misma.
 https://drive.google.com/file/d/1M2hFk-x9az_9vhyx4OBg0TUMqqeR2XQT/view?usp=sharing
