@@ -18,7 +18,7 @@ Tecnologías utilizadas
 
 Uso de Inteligencia Artificial
 La IA fue una herramienta clave en este proyecto.  
-- Cómo la usé: Automatizar código repetitivo, explicación de conceptos nuevos, estrategias de programación, ayuda en frente a lo desconocido.
+- Cómo la usé: Automatizar código repetitivo, explicación de conceptos nuevos, estrategias de programación.
 - Reflexión personal: considero que la IA es muy útil siempre que se use con criterio, entendiendo el código y aprovechándola como apoyo en el aprendizaje.  
 
 Cosas a mejorar
