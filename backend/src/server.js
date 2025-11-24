@@ -24,6 +24,24 @@ const  crearLogger  = require('../plugins/logger.plugin.js');
 const logger = crearLogger('server.js');
 
 
+process.on('uncaughtException', (err, origin) => {
+  logger.error('--- EXCEPCIÓN NO CAPTURADA (uncaughtException) ---');
+  logger.error(`El error fue:   ${err.message}`);
+  logger.error(`Stack trace:  ${err.stack}`);
+  logger.error(`Origen:  ${origin}`);
+  
+  process.exit(1); 
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  logger.error('--- ERROR EN PROMESA NO MANEJADA (unhandledRejection) ---');
+  
+  const error = reason || {}; 
+  logger.error(`Razón del error: ${error.message || reason}`);
+  logger.error(`Stack trace: ${error.stack || 'No stack trace'}`);
+  process.exit(1); 
+});
+
 const fs = require('fs');     
 const multer = require('multer'); 
 

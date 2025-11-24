@@ -2,7 +2,7 @@ const bcrypt = require('bcryptjs');
 const crypto = require('crypto');
 //console.log(crypto.randomBytes(64).toString('hex'));
 
-const passwordToHash = 'rivermanya21';
+const passwordToHash = '';
 
 async function hashAndLogPassword() {
     try {

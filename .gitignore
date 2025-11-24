@@ -6,6 +6,10 @@ node_modules/
 
 public
 
-authMiddleware.js
+backend/src/middlewares/authMiddleware.js
 
-authController.js
+backend/src/controllers/authController.js
+
+assets/
+
+backend/hash.password.js
