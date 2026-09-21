@@ -12,8 +12,9 @@ async function sacarDeGrupoPaciente(){
             WHERE fechaBaja IS NULL AND idPaciente IN (
                 SELECT idPaciente
                 FROM view_cuota_estado
-                WHERE
-                    estado = 'Atrasada'
+                WHERE estado = 'Atrasada'
+                AND mes = MONTH(CURDATE() - INTERVAL 1 MONTH)
+                AND anio = YEAR(CURDATE() - INTERVAL 1 MONTH)
             );`,
         );
 

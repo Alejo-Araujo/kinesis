@@ -36,8 +36,8 @@ async function login(req, res) {
             cedula: user.cedula,
         };
 
-        const secret = '8a85b2ffde80d0538a4419c5fd773bd4dfe212a226c91c77838c54d1fcc659f75ff30560e4dca169b3a603daf2e633235a10bfd6b87c93bd2400d4850776af5f'; 
-        //console.log(`secret es ${secret}`);
+        const secret = process.env.JWT_SECRET;
+        
         const expiresIn = rememberMe ? '14d' : '2h';
         const token = jwt.sign(payload, secret, { expiresIn });
 
@@ -69,7 +69,7 @@ async function isAdministrador(req, res) {
         if (rows[0].count > 0) {
             return res.status(200).json({ resultado: true });
         } else {
-            return res.status(201).json({ resultado: false });
+            return res.status(200).json({ resultado: false });
         }
 
     } catch (error) {

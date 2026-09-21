@@ -1,14 +1,22 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- <script type="text/JavaScript">
-    const port = window.location.port;
-        if (port != 50001) {
-        window.location.href='http://centrokinesis.uy:50001';
-        }
-    </script> -->
+    <script type="text/javascript">
+        // Redireccion de PRODUCCION: misma logica que el codigo original
+        //   if (port != 50001) location.href = 'http://centrokinesis.uy:50001'
+        // pero dev-safe: en localhost / 127.0.0.1 / file:// NO hace nada
+        // (asi no rompe el desarrollo, que era el motivo por el que estaba comentado).
+        (function () {
+            var host = window.location.hostname;
+            var esLocal = host === 'localhost' || host === '127.0.0.1' || host === '' || window.location.protocol === 'file:';
+            if (!esLocal && window.location.port !== '50001') {
+                window.location.href = 'http://centrokinesis.uy:50001';
+            }
+        })();
+    </script>
 
     <link rel="apple-touch-icon" sizes="180x180" href="/public/apple-touch-icon.png">
     <link rel="icon" type="image/png" sizes="32x32" href="/public/favicon-32x32.png">
@@ -32,6 +40,7 @@
     
     <title>Centro Kinesis</title>
 </head>
+
 <body>
 
 <!-- DIV DE CARGA -->
@@ -146,12 +155,13 @@
         <li class="nav-item">
           <a class="nav-link" href="#" data-target="divNombreDiagnostico">Diagnosticos</a>
         </li>
-        <li class="nav-item dropdown">
+        <li class="nav-item dropdown" id="liFacturacion" hidden>
           <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             Facturación
           </a>
           <ul class="dropdown-menu">
             <li><a class="dropdown-item" href="#" data-target="divCuotas">Mensual</a></li>
+            <li><a class="dropdown-item" href="#" data-target="divTarifas">Tarifas</a></li>
             <!-- <li><a class="dropdown-item" href="#" data-target="divFacturacionSesiones">Por sesiones</a></li> -->
           </ul>
         </li>
@@ -207,7 +217,7 @@
                         <label for="selectedPacienteNameFijarseHorario" class="form-label">Paciente</label>
                             <div class="input-group">
                                 <input type="text" class="form-control" id="selectedPacienteNameFijarseHorario" readonly placeholder="Ningún paciente seleccionado">
-                                <button class="btn btn-outline-secondary" type="button" id="selectPacienteBtnFijarseHorario" data-bs-toggle="modal" data-bs-target="#selectPacienteFijarseHorarioModal">Seleccionar Paciente</button>
+                                <button class="btn btn-outline-secondary" type="button" id="selectPacienteBtnFijarseHorario">Seleccionar Paciente</button>
                                 <input type="hidden" id="selectedPacienteIdFijarseHorario" disabled>
                             </div>
                     </div>
@@ -243,76 +253,6 @@
 </div>
 
 <!-- MODAL AGREGAR PACIENTE A FIJARSE HORARIO -->
-<div class="modal fade" id="selectPacienteFijarseHorarioModal" tabindex="-1" aria-labelledby="selectPacienteModalLabelFijarseHorario" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="selectPacienteModalLabelFijarseHorario">Seleccionar Paciente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="filtrosPacienteSeleccionContainerFijarseHorario">
-                    <div class="row mb-3 align-items-end">
-                        <div class="col-md-4">
-                            <label for="selectDiagnosticosBuscarSeleccionFijarseHorario" class="form-label">Filtrar por diagnósticos:</label>
-                            <select id="selectDiagnosticosBuscarSeleccionFijarseHorario" class="form-select"></select>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="inputBuscarNombreSeleccionFijarseHorario" class="form-label">Nombre:</label>
-                            <input type="text" id="inputBuscarNombreSeleccionFijarseHorario" class="form-control" placeholder="Buscar por nombre">
-                        </div>
-                        <div class="col-md-4">
-                            <label for="inputBuscarCedulaSeleccionFijarseHorario" class="form-label">Cédula:</label>
-                            <input type="text" id="inputBuscarCedulaSeleccionFijarseHorario" class="form-control" placeholder="Buscar por cédula">
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label for="selectActiveSeleccionFijarseHorario" class="form-label">Mostrar:</label>
-                            <select id="selectActiveSeleccionFijarseHorario" class="form-select"></select>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="divTablaPacientesSeleccionFijarseHorario" class="table-scroll shadow-sm rounded border">
-                    <div id="tableLoadingOverlaySeleccionFijarseHorario" class="loading-overlay" style="display: none;">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Cargando...</span>
-                        </div>
-                        <p class="mt-2 text-primary">Cargando pacientes...</p>
-                    </div>
-                    <table class="table table-sm table-hover" id="tablaPacientesSeleccionFijarseHorario">
-                        <thead class="table-light">
-                            <tr>
-                                <th scope="col">#</th>
-                                <th scope="col">Nombre y Apellido</th>
-                                <th scope="col">Cédula</th>
-                                <th scope="col">Diagnósticos</th>
-                                <th scope="col">Teléfono</th>
-                                <th scope="col">Gmail</th>
-                                <th scope="col">Activo</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                    </table>
-
-                    <div class="d-flex justify-content-between align-items-center p-2 text-muted bg-light border-top">
-                        <div class="d-flex align-items-center">
-                            Total de pacientes: <strong id="contadorPacientesSeleccionFijarseHorario" class="ms-1">0</strong>
-                        </div>
-                        <nav aria-label="Navegación de pacientes">
-                            <ul class="pagination mb-0" id="paginationControlsSeleccionFijarseHorario"></ul>
-                        </nav>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="btnSeleccionarPacienteModalFijarseHorario" disabled>Agregar Paciente</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 
 <!-- MODAL AGREGAR HORARIO -->
@@ -473,7 +413,7 @@
                             <label for="selectedPacienteName" class="form-label">Paciente:</label>
                                 <div class="input-group">
                                     <input type="text" class="form-control" id="selectedPacienteName" readonly placeholder="Ningún paciente seleccionado">
-                                    <button class="btn btn-outline-secondary" type="button" id="selectPacienteBtn" data-bs-toggle="modal" data-bs-target="#selectPacienteModalSesion">Seleccionar Paciente</button>
+                                    <button class="btn btn-outline-secondary" type="button" id="selectPacienteBtn">Seleccionar Paciente</button>
                                     <input type="hidden" id="selectedPacienteId" disabled> </div>
                         </div>
                         </div>
@@ -487,76 +427,6 @@
 </div>
 
 <!-- MODAL AGREGAR PACIENTE A SESION -->
-<div class="modal fade" id="selectPacienteModalSesion" tabindex="-1" aria-labelledby="selectPacienteModalLabelSesion" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="selectPacienteModalLabelSesion">Seleccionar Paciente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="filtrosPacienteSeleccionContainerSesion">
-                    <div class="row mb-3 align-items-end">
-                        <div class="col-md-4">
-                            <label for="selectDiagnosticosBuscarSeleccionSesion" class="form-label">Filtrar por diagnósticos:</label>
-                            <select id="selectDiagnosticosBuscarSeleccionSesion" class="form-select"></select>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="inputBuscarNombreSeleccionSesion" class="form-label">Nombre:</label>
-                            <input type="text" id="inputBuscarNombreSeleccionSesion" class="form-control" placeholder="Buscar por nombre">
-                        </div>
-                        <div class="col-md-4">
-                            <label for="inputBuscarCedulaSeleccionSesion" class="form-label">Cédula:</label>
-                            <input type="text" id="inputBuscarCedulaSeleccionSesion" class="form-control" placeholder="Buscar por cédula">
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label for="selectActiveSeleccionSesion" class="form-label">Mostrar:</label>
-                            <select id="selectActiveSeleccionSesion" class="form-select"></select>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="divTablaPacientesSeleccionSesion" class="table-scroll shadow-sm rounded border">
-                    <div id="tableLoadingOverlaySeleccionSesion" class="loading-overlay" style="display: none;">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Cargando...</span>
-                        </div>
-                        <p class="mt-2 text-primary">Cargando pacientes...</p>
-                    </div>
-                    <table class="table table-sm table-hover" id="tablaPacientesSeleccionSesion">
-                        <thead class="table-light">
-                            <tr>
-                                <th scope="col">#</th>
-                                <th scope="col">Nombre y Apellido</th>
-                                <th scope="col">Cédula</th>
-                                <th scope="col">Diagnósticos</th>
-                                <th scope="col">Teléfono</th>
-                                <th scope="col">Gmail</th>
-                                <th scope="col">Activo</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                    </table>
-
-                    <div class="d-flex justify-content-between align-items-center p-2 text-muted bg-light border-top">
-                        <div class="d-flex align-items-center">
-                            Total de pacientes: <strong id="contadorPacientesSeleccionSesion" class="ms-1">0</strong>
-                        </div>
-                        <nav aria-label="Navegación de pacientes">
-                            <ul class="pagination mb-0" id="paginationControlsSeleccionSesion"></ul>
-                        </nav>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="btnSeleccionarPacienteModalSesion" disabled>Agregar Paciente</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 <!-- MODAL DE ESTADISTICAS SEISONES FISIOS -->
  <div class="modal fade" id="modalEstadisticasSesiones" tabindex="-1" aria-labelledby="modalEstadisticasSesionesLabel" aria-hidden="true">
@@ -652,7 +522,7 @@
                         <p id="noParticipantsMessage" class="text-muted d-none">No hay pacientes en este grupo.</p>
                         
                         <div class="mt-3 d-flex gap-2">
-                            <button id="btnAgregarPacienteHorario" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#selectPacienteModal">Agregar Paciente</button>
+                            <button id="btnAgregarPacienteHorario" class="btn btn-info btn-sm">Agregar Paciente</button>
                             <button id="btnEliminarPacienteHorario" class="btn btn-danger btn-sm" disabled>Eliminar Paciente</button>
                         </div>
                     </div>
@@ -677,45 +547,46 @@
 </div>
 
 <!-- MODAL AGREGAR PACIENTE A GRUPO -->
-<div class="modal fade" id="selectPacienteModal" tabindex="-1" aria-labelledby="selectPacienteModalLabel" aria-hidden="true">
+<!-- MODAL SELECCIONAR PACIENTE (UNIFICADO Y REUTILIZABLE) -->
+<div class="modal fade" id="modalSeleccionarPaciente" tabindex="-1" aria-labelledby="modalSeleccionarPacienteLabel" aria-hidden="true">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="selectPacienteModalLabel">Seleccionar Paciente</h5>
+                <h5 class="modal-title" id="modalSeleccionarPacienteLabel">Seleccionar Paciente</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div id="filtrosPacienteSeleccionContainer">
+                <div id="filtrosSelectorPaciente">
                     <div class="row mb-3 align-items-end">
                         <div class="col-md-4">
-                            <label for="selectDiagnosticosBuscarSeleccion" class="form-label">Filtrar por diagnósticos:</label>
-                            <select id="selectDiagnosticosBuscarSeleccion" class="form-select"></select>
+                            <label for="selectDiagnosticosSelector" class="form-label">Filtrar por diagnósticos:</label>
+                            <select id="selectDiagnosticosSelector" class="form-select"></select>
                         </div>
                         <div class="col-md-4">
-                            <label for="inputBuscarNombreSeleccion" class="form-label">Nombre:</label>
-                            <input type="text" id="inputBuscarNombreSeleccion" class="form-control" placeholder="Buscar por nombre">
+                            <label for="inputBuscarNombreSelector" class="form-label">Nombre:</label>
+                            <input type="text" id="inputBuscarNombreSelector" class="form-control" placeholder="Buscar por nombre">
                         </div>
                         <div class="col-md-4">
-                            <label for="inputBuscarCedulaSeleccion" class="form-label">Cédula:</label>
-                            <input type="text" id="inputBuscarCedulaSeleccion" class="form-control" placeholder="Buscar por cédula">
+                            <label for="inputBuscarCedulaSelector" class="form-label">Cédula:</label>
+                            <input type="text" id="inputBuscarCedulaSelector" class="form-control" placeholder="Buscar por cédula">
                         </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col-md-4">
-                            <label for="selectActiveSeleccion" class="form-label">Mostrar:</label>
-                            <select id="selectActiveSeleccion" class="form-select"></select>
+                            <label for="selectActiveSelector" class="form-label">Mostrar:</label>
+                            <select id="selectActiveSelector" class="form-select"></select>
                         </div>
                     </div>
                 </div>
 
-                <div id="divTablaPacientesSeleccion" class="table-scroll shadow-sm rounded border">
-                    <div id="tableLoadingOverlaySeleccion" class="loading-overlay" style="display: none;">
+                <div id="divTablaSelectorPaciente" class="table-scroll shadow-sm rounded border">
+                    <div id="tableLoadingOverlaySelector" class="loading-overlay" style="display: none;">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Cargando...</span>
                         </div>
                         <p class="mt-2 text-primary">Cargando pacientes...</p>
                     </div>
-                    <table class="table table-sm table-hover" id="tablaPacientesSeleccion">
+                    <table class="table table-sm table-hover" id="tablaPacientesSelector">
                         <thead class="table-light">
                             <tr>
                                 <th scope="col">#</th>
@@ -733,16 +604,16 @@
 
                     <div class="d-flex justify-content-between align-items-center p-2 text-muted bg-light border-top">
                         <div class="d-flex align-items-center">
-                            Total de pacientes: <strong id="contadorPacientesSeleccion" class="ms-1">0</strong>
+                            Total de pacientes: <strong id="contadorPacientesSelector" class="ms-1">0</strong>
                         </div>
                         <nav aria-label="Navegación de pacientes">
-                            <ul class="pagination mb-0" id="paginationControlsSeleccion"></ul>
+                            <ul class="pagination mb-0" id="paginationControlsSelector"></ul>
                         </nav>
                     </div>
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="btnSeleccionarPacienteModal" disabled>Agregar Paciente</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmarSeleccionPaciente" disabled>Seleccionar</button>
             </div>
         </div>
     </div>
@@ -1051,8 +922,8 @@
                 </select>
             </div>
             <div class="col-md-4">
-                <label for="selectAnioCuotasFiltro" class="form-label">Año:</label>
-                <select class="form-select" id="selectAnioCuotasFiltro"></select>
+                <label for="anioCuotasFiltro" class="form-label">Año:</label>
+                <select class="form-select" id="anioCuotasFiltro"></select>
             </div>
             <div class="col-md-4 text-end">
                 <button id="btnRegistrarNuevaCuota" class="btn btn-success mt-4" data-bs-toggle="modal" data-bs-target="#modalRegistrarCuota">
@@ -1159,103 +1030,45 @@
             </div>
           </div>
 
-          <h6 class="mt-4">Ingresos por pacientes que vienen:</h6>
-          
-          <!-- 1 vez -->
-          <div class="row align-items-center mb-2">
-            <div class="col-5">
-              <label class="mb-0">1 vez a la semana</label>
+          <h6 class="mt-4 mb-3">Ingresos por pacientes que vienen:</h6>
+
+          <div class="balance-kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-label">1 vez / semana</div>
+              <div class="kpi-value" id="ingresos1xSemana">$0</div>
+              <div class="kpi-sub"><span id="cant1xSemana">0</span> pacientes</div>
             </div>
-            <div class="col-4">
-              <input type="text" id="ingresos1xSemana" class="form-control" disabled>
+            <div class="kpi-card">
+              <div class="kpi-label">2 veces / semana</div>
+              <div class="kpi-value" id="ingresos2xSemana">$0</div>
+              <div class="kpi-sub"><span id="cant2xSemana">0</span> pacientes</div>
             </div>
-            <div class="col-3 d-flex align-items-center">
-              <label class="mb-0 me-2 small text-muted">Cantidad:</label>
-              <input type="text" id="cant1xSemana" class="form-control form-control-sm" disabled style="width:72px;">
+            <div class="kpi-card">
+              <div class="kpi-label">3 veces / semana</div>
+              <div class="kpi-value" id="ingresos3xSemana">$0</div>
+              <div class="kpi-sub"><span id="cant3xSemana">0</span> pacientes</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">4 veces / semana</div>
+              <div class="kpi-value" id="ingresos4xSemana">$0</div>
+              <div class="kpi-sub"><span id="cant4xSemana">0</span> pacientes</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">5 veces / semana</div>
+              <div class="kpi-value" id="ingresos5xSemana">$0</div>
+              <div class="kpi-sub"><span id="cant5xSemana">0</span> pacientes</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Otro</div>
+              <div class="kpi-value" id="ingresosOtros">$0</div>
+              <div class="kpi-sub"><span id="cantOtros">0</span> pacientes</div>
             </div>
           </div>
 
-          <!-- 2 veces -->
-          <div class="row align-items-center mb-2">
-            <div class="col-5">
-              <label class="mb-0">2 veces a la semana</label>
-            </div>
-            <div class="col-4">
-              <input type="text" id="ingresos2xSemana" class="form-control" disabled>
-            </div>
-            <div class="col-3 d-flex align-items-center">
-              <label class="mb-0 me-2 small text-muted">Cantidad:</label>
-              <input type="text" id="cant2xSemana" class="form-control form-control-sm" disabled style="width:72px;">
-            </div>
-          </div>
-
-          <!-- 3 veces -->
-          <div class="row align-items-center mb-2">
-            <div class="col-5">
-              <label class="mb-0">3 veces a la semana</label>
-            </div>
-            <div class="col-4">
-              <input type="text" id="ingresos3xSemana" class="form-control" disabled>
-            </div>
-            <div class="col-3 d-flex align-items-center">
-              <label class="mb-0 me-2 small text-muted">Cantidad:</label>
-              <input type="text" id="cant3xSemana" class="form-control form-control-sm" disabled style="width:72px;">
-            </div>
-          </div>
-
-          <!-- 4 veces -->
-          <div class="row align-items-center mb-2">
-            <div class="col-5">
-              <label class="mb-0">4 veces a la semana</label>
-            </div>
-            <div class="col-4">
-              <input type="text" id="ingresos4xSemana" class="form-control" disabled>
-            </div>
-            <div class="col-3 d-flex align-items-center">
-              <label class="mb-0 me-2 small text-muted">Cantidad:</label>
-              <input type="text" id="cant4xSemana" class="form-control form-control-sm" disabled style="width:72px;">
-            </div>
-          </div>
-
-          <!-- 5 veces -->
-          <div class="row align-items-center mb-2">
-            <div class="col-5">
-              <label class="mb-0">5 veces a la semana</label>
-            </div>
-            <div class="col-4">
-              <input type="text" id="ingresos5xSemana" class="form-control" disabled>
-            </div>
-            <div class="col-3 d-flex align-items-center">
-              <label class="mb-0 me-2 small text-muted">Cantidad:</label>
-              <input type="text" id="cant5xSemana" class="form-control form-control-sm" disabled style="width:72px;">
-            </div>
-          </div>
-
-          <!-- Otro -->
-          <div class="row align-items-center mb-2">
-            <div class="col-5">
-              <label class="mb-0">Otro</label>
-            </div>
-            <div class="col-4">
-              <input type="text" id="ingresosOtros" class="form-control" disabled>
-            </div>
-            <div class="col-3 d-flex align-items-center">
-              <label class="mb-0 me-2 small text-muted">Cantidad:</label>
-              <input type="text" id="cantOtros" class="form-control form-control-sm" disabled style="width:72px;">
-            </div>
-          </div>
-          
-          <div class="mb-3 row align-items-center">
-            <div class="col-5">
-              <label class="me-2 fw-bold mb-0">Ingresos totales:</label>
-            </div>
-            <div class="col-4">
-              <input type="text" id="ingresosTotales" class="form-control" disabled>
-            </div>
-            <div class="col-3 d-flex align-items-center">
-              <label class="mb-0 me-2 small text-muted">Total:</label>
-              <input type="text" id="cantTotal" class="form-control form-control-sm" disabled style="width:72px;">
-            </div>
+          <div class="kpi-card kpi-card--total mt-3">
+            <div class="kpi-label">Ingresos totales</div>
+            <div class="kpi-value" id="ingresosTotales">$0</div>
+            <div class="kpi-sub"><span id="cantTotal">0</span> cuotas cobradas</div>
           </div>
         </form>
       </div>
@@ -1267,7 +1080,6 @@
     </div>
   </div>
 </div>
-
 
 <!-- MODAL REGISTRAR CUOTA MANUALMENTE -->
 <div class="modal fade" id="modalRegistrarCuota" tabindex="-1" aria-labelledby="modalRegistrarCuotaLabel" aria-hidden="true">
@@ -1283,7 +1095,7 @@
                         <label for="selectedPacienteNameCuota" class="form-label">Paciente</label>
                             <div class="input-group">
                                 <input type="text" class="form-control" id="selectedPacienteNameCuota" readonly placeholder="Ningún paciente seleccionado">
-                                <button class="btn btn-outline-secondary" type="button" id="selectPacienteBtnCuota" data-bs-toggle="modal" data-bs-target="#selectPacienteCuotaModal">Seleccionar Paciente</button>
+                                <button class="btn btn-outline-secondary" type="button" id="selectPacienteBtnCuota">Seleccionar Paciente</button>
                                 <input type="hidden" id="selectedPacienteIdCuota" disabled>
                             </div>
                     </div>
@@ -1325,76 +1137,6 @@
 </div>
 
 <!-- MODAL AGREGAR PACIENTE A CUOTA -->
-<div class="modal fade" id="selectPacienteCuotaModal" tabindex="-1" aria-labelledby="selectPacienteCuotaModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-xl">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="selectPacienteCuotaModalLabel">Seleccionar Paciente</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="filtrosPacienteCuotaContainer">
-                    <div class="row mb-3 align-items-end">
-                        <div class="col-md-4">
-                            <label for="selectDiagnosticosBuscarSeleccionCuota" class="form-label">Filtrar por diagnósticos:</label>
-                            <select id="selectDiagnosticosBuscarSeleccionCuota" class="form-select"></select>
-                        </div>
-                        <div class="col-md-4">
-                            <label for="inputBuscarNombreSeleccionCuota" class="form-label">Nombre:</label>
-                            <input type="text" id="inputBuscarNombreSeleccionCuota" class="form-control" placeholder="Buscar por nombre">
-                        </div>
-                        <div class="col-md-4">
-                            <label for="inputBuscarCedulaSeleccionCuota" class="form-label">Cédula:</label>
-                            <input type="text" id="inputBuscarCedulaSeleccionCuota" class="form-control" placeholder="Buscar por cédula">
-                        </div>
-                    </div>
-                    <div class="row mb-3">
-                        <div class="col-md-4">
-                            <label for="selectActiveSeleccionCuota" class="form-label">Mostrar:</label>
-                            <select id="selectActiveSeleccionCuota" class="form-select"></select>
-                        </div>
-                    </div>
-                </div>
-
-                <div id="divTablaPacientesCuota" class="table-scroll shadow-sm rounded border">
-                    <div id="tableLoadingOverlaySeleccionCuota" class="loading-overlay" style="display: none;">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Cargando...</span>
-                        </div>
-                        <p class="mt-2 text-primary">Cargando pacientes...</p>
-                    </div>
-                    <table class="table table-sm table-hover" id="tablaPacientesSeleccionCuota">
-                        <thead class="table-light">
-                            <tr>
-                                <th scope="col">#</th>
-                                <th scope="col">Nombre y Apellido</th>
-                                <th scope="col">Cédula</th>
-                                <th scope="col">Diagnósticos</th>
-                                <th scope="col">Teléfono</th>
-                                <th scope="col">Gmail</th>
-                                <th scope="col">Activo</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                        </tbody>
-                    </table>
-
-                    <div class="d-flex justify-content-between align-items-center p-2 text-muted bg-light border-top">
-                        <div class="d-flex align-items-center">
-                            Total de pacientes: <strong id="contadorPacientesSeleccionCuota" class="ms-1">0</strong>
-                        </div>
-                        <nav aria-label="Navegación de pacientes">
-                            <ul class="pagination mb-0" id="paginationControlsSeleccionCuota"></ul>
-                        </nav>
-                    </div>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-primary" id="btnSeleccionarPacienteCuotaModal" disabled>Agregar Paciente</button>
-            </div>
-        </div>
-    </div>
-</div>
 
 
 <!-- MODAL REGISTRAR PAGO -->
@@ -1460,6 +1202,49 @@
     </div>
 </div>
 
+<!-- MODAL CONFIRMAR RESTAURACION DE GRUPOS -->
+<div class="modal fade" id="modalConfirmarRestauracion" tabindex="-1" aria-labelledby="modalConfirmarRestauracionLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title" id="modalConfirmarRestauracionLabel">Restaurar Horarios</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-success" role="alert">
+                    <i class="bi bi-check-circle-fill"></i> El pago se registró correctamente.
+                </div>
+                <p>Se detectó que este paciente fue dado de baja recientemente de los siguientes grupos por atraso de pagos: </p>
+                
+                <div class="table-scroll shadow-sm rounded border position-relative" style="max-height: 250px;">
+                    <div id="loadingOverlayRestauracion" class="loading-overlay" style="display: none;">
+                        <img src="/public/apple-touch-icon.png" alt="Cargando..." class="loading-image"> 
+                        <p class="mt-2 text-primary">Restaurando grupos...</p>
+                    </div>
+
+                    <table class="table table-sm table-hover mb-0" id="tablaGruposRestauracion">
+                        <thead class="table-light sticky-top">
+                            <tr>
+                                <th scope="col">Día</th>
+                                <th scope="col">Hora Inicio</th>
+                                <th scope="col">Hora Fin</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbodyGruposRestauracion">
+                            </tbody>
+                    </table>
+                </div>
+
+                <p class="mt-3 fw-bold">¿Desea restaurar al paciente en estos grupos automáticamente?</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="btnCancelarRestauracion">No, finalizar</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmarRestauracion">Sí, restaurar grupos</button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- <div class="modal fade" id="modalEditarCuota" tabindex="-1" aria-labelledby="modalEditarCuotaLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -1488,6 +1273,102 @@
         </div>
     </div>
 </div> -->
+
+
+<!-- DIV TARIFAS (ABM de tarifagrupo) -->
+<div id="divTarifas" class="container d-none mt-4">
+    <h2 class="mb-3">Tarifas</h2>
+    <p class="text-muted">
+        La tarifa <strong>vigente</strong> es la que factura el sistema el 1° de cada mes según la cantidad de
+        grupos del paciente. Al agregar una tarifa nueva, la anterior se cierra automáticamente y queda como histórica.
+    </p>
+
+    <div id="divTablaTarifas" class="table-scroll shadow-sm rounded border mt-2">
+        <div id="tableLoadingOverlayTarifas" class="loading-overlay" style="display: none;">
+            <img src="/public/apple-touch-icon.png" alt="Cargando..." class="loading-image">
+            <p class="mt-2 text-primary">Cargando tarifas...</p>
+        </div>
+        <table class="table table-sm table-hover mb-0" id="tablaTarifas">
+            <thead class="table-light">
+                <tr>
+                    <th scope="col">Días por semana</th>
+                    <th scope="col">Monto</th>
+                    <th scope="col">Vigente desde</th>
+                    <th scope="col">Vigente hasta</th>
+                    <th scope="col">Estado</th>
+                    <th scope="col" class="text-end">Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="tbodyTarifas">
+            </tbody>
+        </table>
+    </div>
+    <div class="d-flex align-items-center p-2 text-muted bg-light border-top">
+        Total de tarifas: <strong id="contadorTarifas" class="ms-1">0</strong>
+    </div>
+
+    <div class="mt-3">
+        <button id="btnAgregarTarifa" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalTarifa">
+            Agregar tarifa
+        </button>
+    </div>
+</div>
+
+<!-- MODAL AGREGAR / EDITAR TARIFA -->
+<div class="modal fade" id="modalTarifa" tabindex="-1" aria-labelledby="modalTarifaLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalTarifaLabel">Agregar Tarifa</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formTarifa">
+                    <div class="mb-3">
+                        <label for="selectCantidadDiasTarifa" class="form-label">Cantidad de días por semana</label>
+                        <select class="form-select" id="selectCantidadDiasTarifa" required>
+                            <option value="1">1 día por semana</option>
+                            <option value="2">2 días por semana</option>
+                            <option value="3">3 días por semana</option>
+                            <option value="4">4 días por semana</option>
+                            <option value="5">5 días por semana</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputMontoTarifa" class="form-label">Monto</label>
+                        <input type="number" class="form-control" id="inputMontoTarifa" min="0" step="1" value="0" required>
+                    </div>
+                    <div id="grupoFechaTarifa" class="mb-3">
+                        <label class="form-label">Vigente desde (1° del mes elegido)</label>
+                        <div class="d-flex gap-2">
+                            <select id="selectMesTarifa" class="form-select">
+                                <option value="1">Enero</option>
+                                <option value="2">Febrero</option>
+                                <option value="3">Marzo</option>
+                                <option value="4">Abril</option>
+                                <option value="5">Mayo</option>
+                                <option value="6">Junio</option>
+                                <option value="7">Julio</option>
+                                <option value="8">Agosto</option>
+                                <option value="9">Septiembre</option>
+                                <option value="10">Octubre</option>
+                                <option value="11">Noviembre</option>
+                                <option value="12">Diciembre</option>
+                            </select>
+                            <select id="selectAnioTarifa" class="form-select"></select>
+                        </div>
+                        <div class="form-text">La tarifa vigente anterior se cerrará el día previo a esta fecha.</div>
+                    </div>
+                    <input type="hidden" id="inputModoTarifa" value="add">
+                    <input type="hidden" id="inputFechaDesdeTarifaEdit">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary" form="formTarifa" id="btnGuardarTarifa">Guardar Tarifa</button>
+            </div>
+        </div>
+    </div>
+</div>
 
 
 

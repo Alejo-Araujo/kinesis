@@ -175,8 +175,8 @@ let { fecha, horaInicio, horaFin, idFisio, idPaciente } = req.body;
         );
 
         if(result.affectedRows === 0 ){
-            logger.log(`No se pudo crear la sesión o esta ya existe`);
-            res.status(201).json({ message: 'Sesión creada exitosamente.'});
+            logger.error(`No se pudo crear la sesión.`);
+            res.status(500).json({ message: 'No se pudo crear la sesión.'});
         }else{
             logger.log(`Sesión creada. Fecha: ${fecha} desde las: ${horaInicio} hasta las: ${horaFin}`);
             res.status(201).json({ message: 'Sesión creada exitosamente.'});
@@ -262,7 +262,7 @@ if (!fecha || !horaInicio || !horaFin || !idFisio || !idPaciente) {
         return res.status(400).json({ message: 'El formato del id del paciente es inválido.' });
     }
 
-    const fechaBienOriginal = fecha.split('T')[0];
+    const fechaBienOriginal = fechaOriginal.split('T')[0];
 
 
 
@@ -331,10 +331,10 @@ let { fecha, horaInicio, horaFin} = req.query;
 
         if(result.affectedRows === 0 ){
             logger.log(`No se pudo eliminar la sesión o esta ya fue eliminada`);
-            res.status(201).json({ message: 'Sesión eliminada exitosamente.'});
+            res.status(404).json({ message: 'Sesión no encontrada.'});
         }else{
             logger.log(`Sesión eliminada. Fecha: ${fecha} desde las: ${horaInicio} hasta las: ${horaFin}`);
-            res.status(201).json({ message: 'Sesión eliminada exitosamente.'});
+            res.status(200).json({ message: 'Sesión eliminada exitosamente.'});
         }
 
     } catch (error) {
@@ -382,7 +382,7 @@ const { anio, mes, fisio } = req.query;
              JOIN fisioterapeuta f ON s.idFisio = f.id
              JOIN usuario u ON f.idUsuario = u.id
              WHERE MONTH(fecha) = ? AND YEAR(fecha) = ? AND s.idFisio = ?`,
-            [mesNum, anioNum, fisioNum]
+            [mesNum+1, anioNum, fisioNum]
         );
     
         res.json(result);

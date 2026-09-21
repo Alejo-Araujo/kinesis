@@ -1,6 +1,7 @@
 import { API_BASE_URL } from './config.js';
 import { getAuthToken, mostrarLogin } from './login.js';
 import { mostrarMensaje, mostrarConfirmacion, deseleccionarFilas } from './ui.js';
+import { abrirSelectorPaciente, cerrarSelectorPaciente } from './selectorPaciente.js';
 
 const calendarGrid = document.getElementById('calendar-grid');
 const currentMonthYearHeader = document.getElementById('currentMonthYear');
@@ -334,7 +335,7 @@ const btnEliminarSesion = document.getElementById('btnEliminarSesion');
 
 const btnAgregarSesion = document.getElementById('btnAgregarSesion');
 const inputFechaAgregarSesion = document.getElementById('sessionDate');
-const btnSeleccionarPaciente = document.getElementById('btnSeleccionarPacienteModalSesion');
+const btnSeleccionarPaciente = document.getElementById('selectPacienteBtn');
 const inputHoraInicioSesion = document.getElementById('sessionStartTime');
 const inputHoraFinSesion = document.getElementById('sessionEndTime');
 const selectFisioSesion = document.getElementById('selectFisiosSesion');
@@ -342,13 +343,6 @@ const selectPacienteSesionId = document.getElementById('selectedPacienteId');
 const selectPacienteSesionName = document.getElementById('selectedPacienteName');
 const tituloAgregarSesionModal = document.getElementById('sessionDetailModalLabel');
 
-const selectPacienteModalSesion = document.getElementById('selectPacienteModalSesion');
-const selectPacienteModalSesionInstance = new bootstrap.Modal(selectPacienteModalSesion);
-
-    selectPacienteModalSesion.addEventListener('show.bs.modal', () => {
-        deseleccionarFilas('divAgendaPersonal');
-    })
-    
     btnAgregarSesion.addEventListener('click', (event) => {
         
         const partesFecha = modalDiaSesion.textContent.split('-'); 
@@ -540,18 +534,19 @@ const selectPacienteModalSesionInstance = new bootstrap.Modal(selectPacienteModa
                 };
     });
 
-    btnSeleccionarPaciente.addEventListener('click', async (event) => {                
-        const selectedPacienteRow = document.querySelector('#tablaPacientesSeleccionSesion tbody tr.table-selected');
-        if(selectedPacienteRow){
-            const pacienteId = selectedPacienteRow.dataset.pacienteId; 
-            if(pacienteId){            
+    btnSeleccionarPaciente.addEventListener('click', () => {
+        abrirSelectorPaciente({
+            titulo: 'Seleccionar Paciente',
+            textoBoton: 'Seleccionar',
+            onSelect: async (paciente) => {
+                const pacienteId = paciente.id;
                 const token = getAuthToken();
-                    if (!token) {
-                        mostrarMensaje('No hay token de autenticación disponible. Redirigiendo al login.','danger');
-                        mostrarLogin();
-                        return;
-                    }
-                    try {
+                if (!token) {
+                    mostrarMensaje('No hay token de autenticación disponible. Redirigiendo al login.','danger');
+                    mostrarLogin();
+                    return;
+                }
+                try {
                     const response = await fetch(`${API_BASE_URL}/api/pacientes/${pacienteId}`, {
                         method: 'GET',
                         headers: {
@@ -562,7 +557,7 @@ const selectPacienteModalSesionInstance = new bootstrap.Modal(selectPacienteModa
                     if (!response.ok) {
                         if (response.status === 401 || response.status === 403) {
                             mostrarLogin();
-                            return; 
+                            return;
                         }
                         const errorData = await response.json();
                         throw new Error(errorData.message || `Error al obtener paciente: ${response.statusText}`);
@@ -570,15 +565,14 @@ const selectPacienteModalSesionInstance = new bootstrap.Modal(selectPacienteModa
                     const data = await response.json();
                     selectPacienteSesionId.value = data.id;
                     selectPacienteSesionName.value = data.nomyap;
-                    selectPacienteModalSesionInstance.hide();
-
-                    } catch (error) {
-                        console.error('Error en fetchPacienteById:', error);
-                        mostrarMensaje(error.message || 'Error al cargar los datos del paciente.', 'danger');
-                        return null;
-                    }     
+                    cerrarSelectorPaciente();
+                } catch (error) {
+                    console.error('Error en fetchPacienteById:', error);
+                    mostrarMensaje(error.message || 'Error al cargar los datos del paciente.', 'danger');
+                    return null;
+                }
             }
-        }
+        });
     });
         
     btnEliminarSesion.addEventListener('click', async(event) => {

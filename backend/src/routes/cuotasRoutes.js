@@ -11,6 +11,6 @@ router.get('/generarBalance', authenticateToken, authorizeAdmin, cuotasControlle
 router.post('/agregarCuota', authenticateToken, authorizeAdmin, cuotasController.addCuota);
 router.post('/registrarPago', authenticateToken, authorizeAdmin, cuotasController.registrarPago);
 router.post('/bajaCuota', authenticateToken, authorizeAdmin, cuotasController.bajaCuota);
-
+router.post('/restaurarGrupos', authenticateToken, authorizeAdmin, cuotasController.restaurarGrupos);
 
 module.exports = router;

@@ -79,7 +79,7 @@ async function getAllPacientes(req, res) {
                 diagnostico d ON p.id = d.idPaciente
             LEFT JOIN
                 nombrediagnostico nd ON d.idNombreDiagnostico = nd.id
-            ${whereClause};
+            ${whereClause} AND p.fechaBaja IS NULL;
         `;
 
         const [pacientes] = await db.execute(query, [...values, limitNum, offset]);
@@ -140,8 +140,46 @@ function isValidFechaNacimiento(fechaNacimiento, minEdad = 0) {
     return true;
 }
 
+//no entiendo nada pero funciona :)
+function levenshteinDistance(a, b) {
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+
+    const matrix = [];
+
+    for (let i = 0; i <= b.length; i++) {
+        matrix[i] = [i];
+    }
+
+    for (let j = 0; j <= a.length; j++) {
+        matrix[0][j] = j;
+    }
+
+    for (let i = 1; i <= b.length; i++) {
+        for (let j = 1; j <= a.length; j++) {
+            if (b.charAt(i - 1) === a.charAt(j - 1)) {
+                matrix[i][j] = matrix[i - 1][j - 1];
+            } else {
+                matrix[i][j] = Math.min(
+                    matrix[i - 1][j - 1] + 1, // sustitución
+                    Math.min(
+                        matrix[i][j - 1] + 1, // inserción
+                        matrix[i - 1][j] + 1 // eliminación
+                    )
+                );
+            }
+        }
+    }
+
+    return matrix[b.length][a.length];
+}
+
 async function createPaciente(req, res) {
-    let { nomyap, cedula, fechaNacimiento, fechaCreacion, telefono, gmail, genero } = req.body;
+    let { nomyap, cedula, fechaNacimiento, fechaCreacion, telefono, gmail, genero, forceCreate } = req.body;
+
+    console.log(`Intentando crear paciente: ${nomyap}`);
+    console.log(`forceCreate recibido (raw):`, forceCreate);
+
 
     if (!nomyap || !telefono || !genero) {
         logger.warn('Intento de crear paciente con datos incompletos.');
@@ -156,6 +194,35 @@ async function createPaciente(req, res) {
     }
     
     nomyap = nomyap.toUpperCase();
+
+    const isForceCreate = forceCreate === true || forceCreate === 'true';
+
+    if (!isForceCreate) {
+        try {
+            const [existingPatients] = await db.execute('SELECT id, nomyap FROM paciente WHERE fechaBaja IS NULL');
+            
+            const similarPatients = [];
+            const THRESHOLD = 2;
+
+            for (const p of existingPatients) {
+                const dist = levenshteinDistance(nomyap, p.nomyap);
+                if (dist <= THRESHOLD) {
+                    similarPatients.push(p.nomyap);
+                }
+            }
+
+            if (similarPatients.length > 0) {
+                return res.status(409).json({ 
+                    message: 'Se encontraron pacientes con nombres similares.',
+                    requiresConfirmation: true,
+                    similarPatients: similarPatients
+                });
+            }
+
+        } catch (error) {
+            logger.error('Error al verificar similitud de nombres:', error);
+        }
+    }
 
     //VALIDAR GMAIL
     if (!isValidGmail(gmail)) {
@@ -300,8 +367,8 @@ const pacienteId = req.params.id;
             return res.status(404).json({ message: 'Paciente no encontrado o no se realizaron cambios.' });
         }
 
-        logger.log(`Datos del paciente con ID: ${result.insertId} actualizados correctamente. Teléfono guardado: ${telefono}`);
-        res.status(201).json({ message: 'Datos actualizados exitosamente.', pacienteId: result.insertId });
+        logger.log(`Datos del paciente con ID: ${pacienteId} actualizados correctamente. Teléfono guardado: ${telefono}`);
+        res.status(200).json({ message: 'Datos actualizados exitosamente.', pacienteId: pacienteId });
 
     } catch (error) {
 

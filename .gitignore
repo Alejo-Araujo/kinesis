@@ -1,5 +1,7 @@
 .env
 
+sshrsa.txt
+
 logs
 
 node_modules/
@@ -13,3 +15,5 @@ backend/src/controllers/authController.js
 assets/
 
 backend/hash.password.js
+
+.nvmrc

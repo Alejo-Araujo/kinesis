@@ -21,6 +21,8 @@ async function generarCuotas(){
                 (SELECT idPaciente, COUNT(*) AS cantidad_dias FROM grupopaciente WHERE fechaBaja IS NULL GROUP BY idPaciente) AS t1
             LEFT JOIN
                 tarifagrupo AS t2 ON t1.cantidad_dias = t2.cantidadDias
+                    AND DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                        BETWEEN t2.fechaDesde AND IFNULL(t2.fechaHasta, '9999-12-31')
             LEFT JOIN
                 cuota AS c ON t1.idPaciente = c.idPaciente AND MONTH(CURDATE()) = c.mes AND YEAR(CURDATE()) = c.anio
             WHERE
@@ -32,6 +34,7 @@ async function generarCuotas(){
         logger.error(error.stack);
     }
 }
+
 
 (async function main() {
   try {

@@ -67,6 +67,28 @@ function removeAuthToken() {
     sessionStorage.removeItem('jwt_token');
 }
 
+// Consulta al backend si el usuario logueado es administrador (tabla `administrador`).
+// Devuelve true/false; ante cualquier error devuelve false (deniega por defecto).
+async function esAdministrador() {
+    const token = getAuthToken();
+    if (!token) return false;
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/isAdministrador`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        if (!response.ok) return false;
+        const data = await response.json();
+        return data.resultado === true;
+    } catch (error) {
+        console.error('Error al verificar si es administrador:', error);
+        return false;
+    }
+}
+
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 async function handleLoginSubmit(event) {
@@ -179,4 +201,5 @@ export {
     guardarAuthToken,
     handleLoginSubmit,
     inicializarLogin,
+    esAdministrador,
 };

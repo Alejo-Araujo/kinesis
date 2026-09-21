@@ -1,15 +1,26 @@
-//require('dotenv').config({ path: '../.env' }); //PARA EJECUTARLO MANUALMENTE / DESARROLLO
-require('dotenv').config({ path: './.env' }); //PARA EJECUTARLO CON NODEMON / DESARROLLO
+const path = require('path');
 
-console.log('DB_HOST:', process.env.DB_HOST); //DESARROLLO
-console.log('DB_USER:', process.env.DB_USER); //DESARROLLO
+// Carga de variables de entorno desde backend/.env con ruta ABSOLUTA:
+// funciona igual con nodemon, con `node` directo o en produccion, sin depender del cwd.
+require('dotenv').config({ path: path.join(__dirname, '..', '.env') });
+
+// Entorno de ejecucion (development | production). Se define con NODE_ENV en el .env.
+const NODE_ENV = process.env.NODE_ENV || 'development';
+const isProduccion = NODE_ENV === 'production';
+
+// Logs de depuracion de la conexion: solo fuera de produccion.
+if (!isProduccion) {
+    console.log('NODE_ENV:', NODE_ENV);
+    console.log('DB_HOST:', process.env.DB_HOST);
+    console.log('DB_USER:', process.env.DB_USER);
+}
+
 const express = require('express');
 const app = express();
 app.disable('x-powered-by');
-const port = process.env.PORT || 3000; //DESARROLLO 
-//const port = 50001; PRODUCCION
-const path = require('path');
-
+// El puerto se toma de la variable de entorno PORT (ej: 3000 en desarrollo, 50001 en produccion).
+const port = process.env.PORT || 3000;
+const fs = require('fs');
 
 const diagnosticosRoutes = require('./routes/diagnosticosRoutes.js')
 const pacientesRoutes = require('./routes/pacientesRoutes');
@@ -19,6 +30,7 @@ const uploadRoutes = require('./routes/uploadRoutes.js');
 const fisiosRoutes = require('./routes/fisiosRoutes.js');
 const calendarioRoutes = require('./routes/calendarioRoutes.js');
 const cuotasRoutes = require('./routes/cuotasRoutes.js')
+const tarifasRoutes = require('./routes/tarifasRoutes.js')
 
 const  crearLogger  = require('../plugins/logger.plugin.js');
 const logger = crearLogger('server.js');
@@ -29,20 +41,34 @@ process.on('uncaughtException', (err, origin) => {
   logger.error(`El error fue:   ${err.message}`);
   logger.error(`Stack trace:  ${err.stack}`);
   logger.error(`Origen:  ${origin}`);
+
+  try {
+    const fatalLogPath = path.join(__dirname, '..', '..', 'logs', 'fatal.log');
+    const mensaje = `\n[${new Date().toISOString()}] Excepción no capturada: ${err.message}\nStack trace: ${err.stack}\nOrigen: ${origin}\n`;
+    fs.appendFileSync(fatalLogPath, mensaje);
+    } catch (fileErr) {
+        console.error('Error al escribir en el archivo de logs:', fileErr.message);
+}
   
   process.exit(1); 
 });
 
 process.on('unhandledRejection', (reason, promise) => {
   logger.error('--- ERROR EN PROMESA NO MANEJADA (unhandledRejection) ---');
-  
   const error = reason || {}; 
   logger.error(`Razón del error: ${error.message || reason}`);
   logger.error(`Stack trace: ${error.stack || 'No stack trace'}`);
+
+  try {
+    const fatalLogPath = path.join(__dirname, '..', '..', 'logs', 'fatal.log');
+    const mensaje = `\n[${new Date().toISOString()}] Error en promesa no manejada: ${error.message || reason}\nStack trace: ${error.stack || 'No stack trace'}\n`;
+    fs.appendFileSync(fatalLogPath, mensaje);
+    } catch (fileErr) {
+        console.error("No se pudo escribir el log fatal", fileErr.message);
+  }
   process.exit(1); 
 });
 
-const fs = require('fs');     
 const multer = require('multer'); 
 
 const publicFilesDir = path.join(__dirname, '..', '..', 'public');
@@ -91,6 +117,9 @@ app.use('/api/calendario', calendarioRoutes);
 //PARA CUOTAS
 app.use('/api/cuotas', cuotasRoutes);
 
+//PARA TARIFAS (ABM de tarifagrupo)
+app.use('/api/tarifas', tarifasRoutes);
+
 //PARA IMAGENES
 app.use('/api/public', uploadRoutes);
 
@@ -109,4 +138,5 @@ app.get('*', (req, res) => {
 app.listen(port, () => {
     logger.log(`Frontend disponible en http://localhost:${port}/index.html`);
 });
+
 

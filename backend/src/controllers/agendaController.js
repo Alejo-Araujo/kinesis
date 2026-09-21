@@ -1,7 +1,7 @@
 const db = require('../db');
 
 const  crearLogger  = require('../../plugins/logger.plugin.js');
-const logger = crearLogger('pacientesController.js');
+const logger = crearLogger('agendaController.js');
 
 async function isValidDiaSemana(diaSemana){
 const dias = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
@@ -572,14 +572,16 @@ async function recalcularCuotaPaciente(db, idPaciente) {
     // Si la cuota esta activa, se le actualiza el monto
     const [result] = await db.execute(`
         UPDATE cuota c
-        SET c.monto = (
+        SET c.monto = COALESCE((
             SELECT tg.monto
             FROM tarifagrupo tg
             WHERE tg.cantidadDias = (
                 SELECT COUNT(*) FROM grupopaciente
                 WHERE idPaciente = ? AND fechaBaja IS NULL
             )
-        )
+              AND DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                    BETWEEN tg.fechaDesde AND IFNULL(tg.fechaHasta, '9999-12-31')
+        ), c.monto)
         WHERE c.idPaciente = ?
           AND c.mes = MONTH(CURDATE())
           AND c.anio = YEAR(CURDATE())
@@ -592,18 +594,23 @@ async function recalcularCuotaPaciente(db, idPaciente) {
         const [result2] = await db.execute(`
             UPDATE cuota c
             SET fechaBaja = NULL,
-            fechaPago = NULL, 
+            fechaPago = NULL,
             descripcion = null,
             metodoPago = 'NoEspecificado',
                 monto = (
                     SELECT tg.monto
                     FROM tarifagrupo tg
-                    WHERE tg.cantidadDias = 1)
+                    WHERE tg.cantidadDias = (
+                        SELECT COUNT(*) FROM grupopaciente
+                        WHERE idPaciente = ? AND fechaBaja IS NULL
+                    )
+                      AND DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                            BETWEEN tg.fechaDesde AND IFNULL(tg.fechaHasta, '9999-12-31'))
             WHERE c.idPaciente = ?
             AND c.mes = MONTH(CURDATE())
             AND c.anio = YEAR(CURDATE())
             AND c.fechaBaja IS NOT NULL;
-        `, [idPaciente]);
+        `, [idPaciente, idPaciente]);
 
         // Si no tiene cuota se le crea una nuev
         if(result2.affectedRows === 0) {
@@ -615,6 +622,8 @@ async function recalcularCuotaPaciente(db, idPaciente) {
                 SELECT COUNT(*) FROM grupopaciente
                 WHERE idPaciente = ? AND fechaBaja IS NULL
             )
+            AND DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                    BETWEEN tg.fechaDesde AND IFNULL(tg.fechaHasta, '9999-12-31')
             AND NOT EXISTS (
                 SELECT 1 FROM view_cuota_estado vc
                 WHERE vc.idPaciente = ?
@@ -637,7 +646,20 @@ async function agregarPacienteGrupo(req, res) {
     }
 
     try {
-        // Reactivar grupo si estaba dado de baja
+        
+        const [deudas] = await db.execute(
+            `SELECT 1 
+             FROM view_cuota_estado 
+             WHERE idPaciente = ? AND estado = 'Atrasada' 
+             LIMIT 1`,
+            [idPaciente]
+        );
+
+        if(deudas.length > 0){
+            logger.warn(`No se puede agregar al paciente ${idPaciente} al grupo porque tiene cuotas atrasadas.`);
+            return res.status(400).json({ message: 'El paciente tiene cuotas atrasadas. No se puede agregar al grupo.' });
+        }
+        
         const [updateResult] = await db.execute(`
             UPDATE grupopaciente
             SET fechaBaja = NULL
@@ -763,7 +785,7 @@ let { diaSemana, horaInicio, horaFin, idFisio } = req.body;
         }else{
 
         logger.log(`Fisioterapeuta agregado al grupo exitosamente`);
-        res.status(201).json({ message: 'Fisioterapeuta agregado exitosamente.', fisioId: result.insertId });
+        res.status(201).json({ message: 'Fisioterapeuta agregado exitosamente.', fisioId: idFisio });
         }
         
 
@@ -882,7 +904,7 @@ let { diaSemana, horaInicio, horaFin } = req.body;
         }      
 
         logger.log(`Grupo eliminado exitosamente`);
-        res.status(201).json({ message: 'Grupo eliminado exitosamente.' });
+        res.status(200).json({ message: 'Grupo eliminado exitosamente.' });
     } catch (error) {
 
         logger.error('Error al eliminar el grupo en la base de datos:', error.message);

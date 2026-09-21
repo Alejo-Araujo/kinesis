@@ -36,6 +36,52 @@ let currentPage = 1;
 const limitPerPage = 200;
 
 
+function mostrarConfirmacionLocal(mensajeHtml, titulo, textoConfirmar, textoCancelar, claseBotonConfirmar) {
+    return new Promise((resolve) => {
+        const modalElement = document.getElementById('confirmModal');
+        let modal = bootstrap.Modal.getInstance(modalElement);
+        if (!modal) {
+            modal = new bootstrap.Modal(modalElement);
+        }
+
+        const modalTitle = modalElement.querySelector('.modal-title');
+        const modalBody = modalElement.querySelector('.modal-body');
+        const btnConfirm = document.getElementById('btnConfirmAction');
+        
+        modalTitle.textContent = titulo || 'Confirmación';
+        modalBody.innerHTML = mensajeHtml; 
+        btnConfirm.textContent = textoConfirmar || 'Confirmar';
+        
+        const claseOriginal = btnConfirm.className;
+        btnConfirm.className = `btn ${claseBotonConfirmar || 'btn-primary'}`;
+
+        // --- MANEJO DE EVENTOS ---
+        const cleanup = () => {
+            btnConfirm.removeEventListener('click', onConfirm);
+            modalElement.removeEventListener('hidden.bs.modal', onHidden);
+            btnConfirm.className = 'btn btn-primary'; 
+        };
+
+        const onConfirm = () => {
+            cleanup();
+            modal.hide();
+            resolve(true);
+        };
+
+        const onHidden = () => {
+            cleanup();
+            resolve(false);
+        };
+
+        btnConfirm.addEventListener('click', onConfirm);
+        modalElement.addEventListener('hidden.bs.modal', onHidden);
+
+        modal.show();
+    });
+}
+
+
+
 function setActionButtonsState(enable, buttons = []) {
     // console.log(buttons);
         buttons.forEach(buttonId => {
@@ -417,7 +463,7 @@ function inicializarAgregarModificarPaciente() {
     }
     });
 
-        btnGuardarPaciente.addEventListener('click', async (event) => {
+    btnGuardarPaciente.addEventListener('click', async (event) => {
         event.preventDefault(); 
         const currentMode = modalElement.dataset.currentMode;
             
@@ -427,6 +473,7 @@ function inicializarAgregarModificarPaciente() {
         }
 
         if(currentMode === 'add'){
+
             const confirmacion = await mostrarConfirmacion('¿Está seguro que desea guardar este paciente?');
             if (!confirmacion) {
                 mostrarMensaje('Alta de paciente cancelada.', 'info');
@@ -463,6 +510,9 @@ function inicializarAgregarModificarPaciente() {
             }
 
             if(currentMode ==='add'){
+                const realizarAlta = async(force, token, pacienteData) => {
+                    const dataToSend = { ...pacienteData, forceCreate: force };
+
                 try {
                     const response = await fetch(`${API_BASE_URL}/api/pacientes`, {
                         method: 'POST',
@@ -470,8 +520,30 @@ function inicializarAgregarModificarPaciente() {
                             'Content-Type': 'application/json',
                             'Authorization': `Bearer ${token}`
                         },
-                        body: JSON.stringify(pacienteData)
+                        body: JSON.stringify(dataToSend)
                     });
+
+                    if(response.status === 409){
+                        const errorData = await response.json();
+                        if (errorData.requiresConfirmation && errorData.similarPatients) {
+                            const nombresSimilares = errorData.similarPatients.join(', ');
+                            const mensajeSimilitud = `
+                                Se encontraron pacientes con nombres muy similares:
+                                ${nombresSimilares}
+                                ¿Desea registrar a este paciente de todas formas?
+                            `;
+                                await new Promise(resolve => setTimeout(resolve, 500));
+                                const confirmarForzado = await mostrarConfirmacion(mensajeSimilitud, 'Posible Duplicado', 'Sí, crear igual', 'Cancelar', 'btn-warning');
+                                if (confirmarForzado) {
+                                    console.log('Usuario confirmó la creación forzada del paciente.');
+                                    return realizarAlta(true, token, pacienteData);
+                                } else {
+                                    mostrarMensaje('Alta cancelada por similitud de nombre.', 'info');
+                                    return;
+                                }
+                            }
+                            throw new Error(errorData.message || 'Conflicto al crear paciente.');
+                        }
 
                     if (!response.ok) {
                         if (response.status === 401 || response.status === 403) {
@@ -483,7 +555,6 @@ function inicializarAgregarModificarPaciente() {
                         throw new Error(errorData.message || `Error al agregar paciente: ${response.statusText}`);
                     }
 
-                    // const result = await response.json();
                     mostrarMensaje('Paciente agregado exitosamente.', 'success');
 
                     modalAgregarPaciente.hide();
@@ -505,6 +576,10 @@ function inicializarAgregarModificarPaciente() {
                     console.error('Error al agregar paciente:', error);
                     mostrarMensaje(error.message || 'Error al agregar paciente.', 'danger');
                 }
+            };
+
+            realizarAlta(false, token, pacienteData);
+
             } else {
                 const selectedPacienteRow = document.querySelector('#tablaPacientes tbody tr.table-selected');
                 if (selectedPacienteRow){
@@ -626,9 +701,16 @@ btnEliminarPaciente.addEventListener('click', async (event) =>{
 
 
 
-export { 
-    inicializarPatientTable, 
-    renderPacientesTable, 
+// Resetea la paginación compartida a la primera página.
+// Lo usa el selector de paciente unificado al abrirse.
+function resetPaginaPacientes() {
+    currentPage = 1;
+}
+
+export {
+    inicializarPatientTable,
+    renderPacientesTable,
     inicializarAgregarModificarPaciente,
-    inicializarEliminarPaciente
+    inicializarEliminarPaciente,
+    resetPaginaPacientes
 };

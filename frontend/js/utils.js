@@ -80,41 +80,27 @@ async function populateAllDiagnosticosSelects(firstOptionText = "Seleccione...",
     }
 }
 
-async function populateAllYearSelects(firstOptionText = "Selecciona un año", firstOptionValue = "") {
-    //NO USO LA FUNCION populateSelect PORQUE ESPERA UN ARRAY CON id Y nombre ASI Q LA HAGO ASI NOMAS
-    
+async function populateAllYearSelects() {
     const selectElementsToPopulate = document.querySelectorAll('select[id^="selectAnio"]');
-
     const currentYear = new Date().getFullYear();
-    const startYearRange = 2025; 
-    const effectiveEndYear = Math.max(currentYear, startYearRange);
+    const startYearRange = 2025;
+
+    const startYear = Math.min(startYearRange, currentYear);
+    const endYear = currentYear + 1;
 
     if (selectElementsToPopulate.length > 0) {
         selectElementsToPopulate.forEach(selectElement => {
             selectElement.innerHTML = '';
-
-            // if (firstOptionText) {
-            //     const defaultOption = document.createElement('option');
-            //     defaultOption.value = firstOptionValue;
-            //     defaultOption.textContent = firstOptionText;
-            //     defaultOption.disabled = true; 
-            //     defaultOption.selected = true; 
-            //     selectElement.appendChild(defaultOption);
-            // }
-
-            for (let year = startYearRange; year <= effectiveEndYear; year++) {
+            for (let year = startYear; year <= endYear; year++) {
                 const option = document.createElement('option');
-                option.value = year;
+                option.value = year.toString();
                 option.textContent = year;
                 selectElement.appendChild(option);
             }
-
-            selectElement.value = effectiveEndYear.toString();
-            selectElement.disabled = false; 
         });
 
     } else {
-        console.warn("No se encontraron elementos <select> en el DOM cuyo ID empiece por 'selectAnio'.");
+        console.warn("No se encontraron elementos <select> cuyo ID empiece por 'selectAnio'.");
     }
 }
 

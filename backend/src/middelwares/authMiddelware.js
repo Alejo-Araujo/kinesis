@@ -14,7 +14,7 @@ function authenticateToken(req, res, next) {
     }
 
     //Verifica si el token fue generado con la JWT_SECRET del server
-    jwt.verify(token, '8a85b2ffde80d0538a4419c5fd773bd4dfe212a226c91c77838c54d1fcc659f75ff30560e4dca169b3a603daf2e633235a10bfd6b87c93bd2400d4850776af5f', (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
         if (err) {
             logger.error(`Acceso prohibido: Token inválido o expirado. Error: ${err.message}`);
             return res.status(403).json({ message: 'Acceso prohibido: Token inválido o expirado.' }); // 403 Forbidden

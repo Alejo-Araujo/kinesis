@@ -168,7 +168,7 @@ async function getCuota(req, res) {
 async function addCuota(req, res) {
     const { idPaciente, mes, anio, monto, montoDescuento} = req.body;
 
-    if (!idPaciente || !mes || !anio || !monto || !montoDescuento) {
+    if (!idPaciente || !mes || !anio || !monto || montoDescuento === undefined || montoDescuento === null || montoDescuento === '') {
         logger.warn('Intento de agregar cuota sin parámetros necesarios.');
         return res.status(400).json({ message: 'ID de paciente, mes, año, monto y monto de descuento son requeridos.' });
     }
@@ -237,7 +237,9 @@ async function getMonto(req, res) {
             FROM tarifagrupo tg
             WHERE tg.cantidadDias = (SELECT COUNT(*)
                                       FROM grupopaciente
-                                      WHERE idPaciente = ? AND fechaBaja IS NULL)`,
+                                      WHERE idPaciente = ? AND fechaBaja IS NULL)
+              AND DATE_FORMAT(CURDATE(), '%Y-%m-01')
+                    BETWEEN tg.fechaDesde AND IFNULL(tg.fechaHasta, '9999-12-31')`,
             [id]
         );
 
@@ -294,33 +296,131 @@ async function registrarPago(req, res) {
     }
 
     try {
-
+        let result;
+        const id = parseInt(idPaciente);
+        const month = parseInt(mes);
+        const year = parseInt(anio);
+      
         if (!fechaPago) {
-            const [result] = await db.execute(
+            [result] = await db.execute(
                 `UPDATE cuota
                  SET monto = ?, descripcion = ?, metodoPago = ?, descuento = ?, montoDescuento = ?, fechaPago = NULL
                  WHERE idPaciente = ? AND mes = ? AND anio = ?`,
                 [amount, descripcion, metodoPago, discount, amountWithDiscount, id, month, year]
             );
-
-            res.status(201).json({ message: 'Pago registrado exitosamente.', id: result.insertId });
+        
         } else {
-            const [result] = await db.execute(
+          [result] =  await db.execute(
                 `UPDATE cuota
                  SET monto = ?, descripcion = ?, metodoPago = ?, descuento = ?, montoDescuento = ?, fechaPago = ?
                  WHERE idPaciente = ? AND mes = ? AND anio = ?`,
                 [amount, descripcion, metodoPago, discount, amountWithDiscount, fechaPago, id, month, year]
             );
-
-            res.status(201).json({ message: 'Pago registrado exitosamente.', id: result.insertId });
         }
 
-
+        const gruposSugeridos = await verificarEligibilidadRestauracion(id, month, year);
+        res.status(201).json({ 
+            message: 'Pago registrado exitosamente.', 
+            id: result.insertId || 0,
+            gruposRestaurables: gruposSugeridos // Devuelve array o null
+        });
 
     } catch (error) {
         logger.error('Error al registrar pago en la base de datos:', error.message);
         logger.error(error.stack);
         res.status(500).json({ message: 'Error interno del servidor al registrar pago.' });
+    }
+}
+
+async function verificarEligibilidadRestauracion(idPaciente, mesPago, anioPago) {
+    const hoy = new Date();
+    let mesAnterior = hoy.getMonth();
+    let anioAnterior = hoy.getFullYear();
+    
+    if (mesAnterior === 0) {
+        mesAnterior = 12; 
+        anioAnterior -= 1;
+    }
+
+    if (parseInt(anioPago) !== anioAnterior || parseInt(mesPago) !== mesAnterior) {
+        return null;
+    }
+
+    const [deudasViejas] = await db.execute(
+        `SELECT COUNT(*) as total 
+         FROM view_cuota_estado 
+         WHERE idPaciente = ? 
+         AND estado = 'Atrasada'
+         AND (anio < ? OR (anio = ? AND mes < ?))`,
+        [idPaciente, anioPago, anioPago, mesPago]
+    );
+
+    if (deudasViejas[0].total > 0) {
+        return null;
+    }
+
+    const mesActual = String(hoy.getMonth() + 1).padStart(2, '0');
+    const anioActual = hoy.getFullYear();
+    const fechaBajaEsperada = `${anioActual}-${mesActual}-01`;
+
+    const [grupos] = await db.execute(
+        `SELECT g.diaSemana, g.horaInicio, g.horaFin 
+         FROM grupopaciente gp
+         JOIN grupo g ON 
+            gp.diaSemana = g.diaSemana AND 
+            gp.horaInicio = g.horaInicio AND 
+            gp.horaFin = g.horaFin
+         WHERE gp.idPaciente = ? 
+         AND gp.fechaBaja =  ?
+         ORDER BY gp.fechaBaja DESC`,
+        [idPaciente, fechaBajaEsperada]
+    );
+
+    if (grupos.length === 0) return null;
+
+    return grupos;
+}
+
+async function restaurarGrupos(req, res) {
+    const { idPaciente } = req.body;
+
+    if (!idPaciente) return res.status(400).json({ message: 'Falta ID Paciente' });
+    const id = parseInt(idPaciente, 10);
+
+    if(isNaN(id)) {
+        return res.status(400).json({ message: 'ID de paciente debe ser un número.' });
+    }
+
+    try {
+        const hoy = new Date();
+        const mesActual = String(hoy.getMonth() + 1).padStart(2, '0');
+        const anioActual = hoy.getFullYear();
+        const fechaBajaCron = `${anioActual}-${mesActual}-01`;
+
+        const [result] = await db.execute(
+            `UPDATE grupopaciente 
+             SET fechaBaja = NULL 
+             WHERE idPaciente = ? 
+             AND fechaBaja = ?`,
+            [idPaciente, fechaBajaCron]
+        );
+
+        if(result.affectedRows > 0){
+            await db.execute(
+                `UPDATE paciente 
+                 SET activo = 1 
+                 WHERE id = ?`,
+                [idPaciente]
+            );
+            
+            res.status(200).json({ message: 'Horarios restaurados correctamente.', restaurados: true });    
+        } else {
+            res.status(200).json({ message: 'No se encontraron grupos recientes para restaurar.', restaurados: false });
+        }
+
+    } catch (error) {
+        logger.error('Error al restaurar grupos:', error);
+        res.status(500).json({ message: 'Error al restaurar grupos.' });
     }
 }
 
@@ -385,8 +485,13 @@ async function generarBalance(req, res) {
         return res.status(400).json({ message: 'Fecha desde no puede ser mayor a fecha hasta.' });
     }
 
-    const yyyymmDesde = fechaDesdeObj.getFullYear() * 100 + (fechaDesdeObj.getMonth() + 1);
-    const yyyymmHasta = fechaHastaObj.getFullYear() * 100 + (fechaHastaObj.getMonth() + 1);
+    // yyyymm a partir de los componentes del string (formato YYYY-MM-DD), SIN conversión
+    // de zona horaria. new Date('2026-09-01') se parsea como UTC medianoche y getMonth()
+    // (local) corría el mes hacia atrás en offsets negativos (Uruguay UTC-3 -> agosto).
+    const [anioDesdeNum, mesDesdeNum] = fechaDesde.split('-').map(Number);
+    const [anioHastaNum, mesHastaNum] = fechaHasta.split('-').map(Number);
+    const yyyymmDesde = anioDesdeNum * 100 + mesDesdeNum;
+    const yyyymmHasta = anioHastaNum * 100 + mesHastaNum;
 
    try {
        const [result] = await db.execute(
@@ -438,5 +543,6 @@ module.exports = {
     getMonto,
     registrarPago,
     bajaCuota,
-    generarBalance
+    generarBalance,
+    restaurarGrupos
 }

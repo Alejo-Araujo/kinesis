@@ -1,8 +1,9 @@
 import { renderPacientesTable } from "./pacientes.js";
 import { renderNombresDiagnosticosTable } from "./diagnosticos.js";
 import { renderCuotaTable } from "./cuota.js";
-import { getAuthToken } from "./login.js";
+import { esAdministrador } from "./login.js";
 import { inicializarCuota } from "./cuota.js";
+import { renderTarifasTable } from "./tarifas.js";
 
 async function mostrar(divId) {
 
@@ -27,42 +28,41 @@ async function mostrar(divId) {
         console.warn(`Advertencia: El elemento con ID ${divId} no fue encontrado en el DOM.`);
     }
 
-    //Esto es para que entre solamente cuando la unica forma en la que se 
-    // deseleccionan las filas y limpian los filtros es al cambiar de pestaña
-    const divsConTablas = ['divPaciente', 'divNombreDiagnostico', 'divCuotas'];
-    if (divsConTablas.includes(divId)) {
+    if (divId === 'divCuotas'){
+        const selectanio = document.getElementById('anioCuotasFiltro');
+        const currentYear = new Date().getFullYear();
+
+        const startYearRange = 2025;
+
+        const startYear = Math.min(startYearRange, currentYear);
+        const endYear = currentYear + 1;
+
+        selectanio.innerHTML = '';
+        for (let year = startYear; year <= endYear; year++) {
+            const option = document.createElement('option');
+            option.value = year.toString();
+            option.textContent = year;
+            selectanio.appendChild(option);
+        }
+        
+        selectanio.value = currentYear.toString();
         deseleccionarFilas(divAMostrar.id);
+    }else if (divId === 'divTarifas'){
+        renderTarifasTable();
+    }else{
+        const divsConTablas = ['divPaciente', 'divNombreDiagnostico'];
+        if (divsConTablas.includes(divId)) {
+            deseleccionarFilas(divAMostrar.id);
+        }
     }
 }
 
+
 async function verificarAutorizacion(divId){
     switch(divId){
+        case 'divTarifas':
         case 'divCuotas':
-            const token = getAuthToken();
-            try{
-                const response = await fetch('/api/auth/isAdministrador', {
-                    method: 'GET',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    }
-                });
-
-                if (!response.ok){
-                    const data = await response.json();
-                    console.error('Error del servidor:', data.message);
-                    return false;
-                }
-
-                const data = await response.json();
-                return data.resultado;
-
-            } catch (error) {
-                console.error('Error al verificar autorización:', error);
-                mostrarMensaje('Error al verificar autorización.');
-                return false;
-            }
-
+            return await esAdministrador();
 
         default:
             return true;
@@ -70,7 +70,7 @@ async function verificarAutorizacion(divId){
 }
 
 function deseleccionarFilas(divId){
-    const divsConTablas = ['divPaciente', 'divNombreDiagnostico', 'divAgenda', 'divAgendaPersonal', 'divAgendaFijarseHorario', 'divCuotas', 'divCuotasPaciente'];
+    const divsConTablas = ['divPaciente', 'divNombreDiagnostico', 'divCuotas'];
     if(divsConTablas.includes(divId)){
         let tablaId = '';
         switch(divId){
@@ -87,63 +87,9 @@ function deseleccionarFilas(divId){
                         ['btnVerFicha', 'btnModificarDatosPersonales', 'btnEliminarPaciente'],
                         'tableLoadingOverlay'));
             break;
-            case 'divAgenda':
-                tablaId = 'tablaPacientesSeleccion';
-                limpiarFiltros( 'filtrosPacienteSeleccionContainer', () => renderPacientesTable(
-                    'tablaPacientesSeleccion',
-                    'contadorPacientesSeleccion',
-                    'paginationControlsSeleccion',
-                    'selectDiagnosticosBuscarSeleccion',
-                    'inputBuscarNombreSeleccion',
-                    'inputBuscarCedulaSeleccion',
-                    'selectActiveSeleccion',
-                    ['btnSeleccionarPacienteModal'],
-                    'tableLoadingOverlaySeleccion'));
-            break;
             case 'divNombreDiagnostico':
                 tablaId = 'tablaNombresDiagnosticos';
                 limpiarFiltros('filtrosDiagnosticoContainer',() => renderNombresDiagnosticosTable());
-            break;
-            case 'divAgendaPersonal':
-                tablaId = 'tablaPacientesSeleccionSesion';
-                limpiarFiltros( 'filtrosPacienteSeleccionContainerSesion', () => renderPacientesTable(
-                    'tablaPacientesSeleccionSesion',
-                    'contadorPacientesSeleccionSesion',
-                    'paginationControlsSeleccionSesion',
-                    'selectDiagnosticosBuscarSeleccionSesion',
-                    'inputBuscarNombreSeleccionSesion',
-                    'inputBuscarCedulaSeleccionSesion',
-                    'selectActiveSeleccionSesion',
-                    ['btnSeleccionarPacienteModalSesion'],
-                    'tableLoadingOverlaySeleccionSesion'));
-            break;
-            case 'divCuotasPaciente':
-                tablaId = 'tablaPacientesSeleccionCuota';
-                limpiarFiltros('filtrosPacienteCuotaContainer', () => renderPacientesTable(
-                    'tablaPacientesSeleccionCuota',
-                    'contadorPacientesSeleccionCuota',
-                    'paginationControlsSeleccionCuota',
-                    'selectDiagnosticosBuscarSeleccionCuota',
-                    'inputBuscarNombreSeleccionCuota',
-                    'inputBuscarCedulaSeleccionCuota',
-                    'selectActiveSeleccionCuota',
-                    ['btnSeleccionarPacienteCuotaModal'],
-                    'tableLoadingOverlaySeleccionCuota'
-                ));
-            break;
-            case 'divAgendaFijarseHorario':
-                tablaId = 'tablaPacientesSeleccionFijarseHorario';
-                limpiarFiltros('filtrosPacienteSeleccionContainerFijarseHorario', () => renderPacientesTable(
-                    'tablaPacientesSeleccionFijarseHorario',
-                    'contadorPacientesSeleccionFijarseHorario',
-                    'paginationControlsSeleccionFijarseHorario',
-                    'selectDiagnosticosBuscarSeleccionFijarseHorario',
-                    'inputBuscarNombreSeleccionFijarseHorario',
-                    'inputBuscarCedulaSeleccionFijarseHorario',
-                    'selectActiveSeleccionFijarseHorario',
-                    ['btnSeleccionarPacienteModalFijarseHorario'],
-                    'tableLoadingOverlaySeleccionFijarseHorario'
-                ));
             break;
             case 'divCuotas':
                 tablaId = 'tablaCuotas';
@@ -167,7 +113,6 @@ function deseleccionarFilas(divId){
     }
 }
 
-
 function limpiarFiltros(containerId, renderTable) {
     const filtrosContainer = document.getElementById(containerId);
     const campos = filtrosContainer.querySelectorAll('input[type="text"], select');
@@ -188,7 +133,6 @@ function limpiarFiltros(containerId, renderTable) {
 
     renderTable();
 }
-
 
 function mostrarMensaje(mensaje, tipo = 'info', duracion = 5000) {
     const container = document.getElementById('messageContainer');
@@ -217,10 +161,22 @@ function mostrarMensaje(mensaje, tipo = 'info', duracion = 5000) {
             iconClass = 'bi bi-info-circle-fill';
     }
 
-    alertDiv.innerHTML = `
-        <i class="${iconClass} me-2"></i> <span class="fs-5">${mensaje}</span>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-    `;
+    // Se construye el contenido con la API del DOM y textContent para evitar XSS:
+    // el mensaje puede provenir de errores del servidor y no debe interpretarse como HTML.
+    const icon = document.createElement('i');
+    icon.className = `${iconClass} me-2`;
+
+    const span = document.createElement('span');
+    span.className = 'fs-5';
+    span.textContent = mensaje;
+
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'btn-close';
+    closeBtn.setAttribute('data-bs-dismiss', 'alert');
+    closeBtn.setAttribute('aria-label', 'Close');
+
+    alertDiv.append(icon, document.createTextNode(' '), span, closeBtn);
 
     container.appendChild(alertDiv);
 
@@ -235,22 +191,25 @@ function mostrarMensaje(mensaje, tipo = 'info', duracion = 5000) {
 function mostrarConfirmacion(message, title = 'Confirmar Operación', confirmText = 'Confirmar', cancelText = 'Cancelar', confirmBtnType = 'btn-primary') {
     return new Promise(resolve => {
         const confirmModalElement = document.getElementById('confirmModal');
-        // Mensaje de error si el modal no se encuentra (buena práctica)
         if (!confirmModalElement) {
             console.error('Error: El elemento "confirmModal" no se encontró en el DOM. Asegúrate de que el HTML del modal esté presente.');
             resolve(false);
             return;
         }
 
-        const confirmModal = new bootstrap.Modal(confirmModalElement);
-        confirmModalElement.style.zIndex = 2000; // Asegura que esté por encima de otros elementos
+
+        let confirmModal = new bootstrap.Modal(confirmModalElement);
+        // let confirmModal = bootstrap.Modal.getInstance(confirmModalElement);
+        // if (!confirmModal) {
+        //     confirmModal = new bootstrap.Modal(confirmModalElement);
+        // }
+        confirmModalElement.style.zIndex = 2000;
 
         const modalTitle = confirmModalElement.querySelector('.modal-title');
         const modalBody = confirmModalElement.querySelector('.modal-body');
         const btnConfirm = confirmModalElement.querySelector('#btnConfirmAction');
         const btnCancel = confirmModalElement.querySelector('.btn-secondary[data-bs-dismiss="modal"]');
 
-        // Mensaje de error si los elementos internos del modal no se encuentran
         if (!modalTitle || !modalBody || !btnConfirm || !btnCancel) {
             console.error('Error: Algunos elementos internos del modal de confirmación no se encontraron.');
             resolve(false);
@@ -262,55 +221,40 @@ function mostrarConfirmacion(message, title = 'Confirmar Operación', confirmTex
         btnConfirm.textContent = confirmText;
         btnCancel.textContent = cancelText;
 
-        // Limpiar clases de tipo de botón anteriores y añadir la nueva
         btnConfirm.classList.remove('btn-primary', 'btn-danger', 'btn-success', 'btn-warning', 'btn-info', 'btn-secondary', 'btn-light', 'btn-dark');
-        btnConfirm.classList.add(confirmBtnType); // Añade el tipo de botón especificado
+        btnConfirm.classList.add(confirmBtnType); 
 
-        // Asegurar que el botón de cancelar siempre sea btn-secondary (si no lo es ya)
         btnCancel.classList.add('btn-secondary');
         
-        // --- INICIO DE LA SECCIÓN CRÍTICA DE MANEJADORES DE EVENTOS ---
-
-        // Definimos handleConfirmation como una declaración de función para asegurar su disponibilidad
         function handleConfirmation(result) {
-            confirmModal.hide(); // Oculta el modal
-            resolve(result); // Resuelve la Promise con el resultado (true/false)
-            confirmModalElement._isResolved = true; // Marca que la Promise ha sido resuelta
+            confirmModal.hide(); 
+            resolve(result); 
+            confirmModalElement._isResolved = true; 
+            
 
-            // Eliminar los event listeners para evitar llamadas múltiples y fugas de memoria
             btnConfirm.removeEventListener('click', confirmModalElement._handleConfirmClick);
             btnCancel.removeEventListener('click', confirmModalElement._handleCancelClick);
             confirmModalElement.removeEventListener('hidden.bs.modal', confirmModalElement._handleModalHidden);
         }
 
-        // Definimos los manejadores de eventos. Son funciones flecha para mantener el 'this' correcto
-        // y cierran sobre 'handleConfirmation'.
         const handleConfirmClick = () => handleConfirmation(true);
         const handleCancelClick = () => handleConfirmation(false);
         const handleModalHidden = () => {
-            // Si el modal se cierra de forma inesperada (ej. clic fuera o tecla Esc)
             if (!confirmModalElement._isResolved) {
-                handleConfirmation(false); // Considerar como una cancelación
+                handleConfirmation(false); 
             }
         };
 
-        // Almacenar las referencias de las funciones en el elemento del modal
-        // Esto es CRÍTICO para que removeEventListener funcione correctamente,
-        // ya que necesita la MISMA instancia de la función que se añadió.
         confirmModalElement._handleConfirmClick = handleConfirmClick;
         confirmModalElement._handleCancelClick = handleCancelClick;
         confirmModalElement._handleModalHidden = handleModalHidden;
 
-        // Añadir los event listeners usando las referencias ALMACENADAS
-        // (Esto asegura que removeEventListener pueda encontrarlos y quitarlos)
         btnConfirm.addEventListener('click', confirmModalElement._handleConfirmClick);
         btnCancel.addEventListener('click', confirmModalElement._handleCancelClick);
         confirmModalElement.addEventListener('hidden.bs.modal', confirmModalElement._handleModalHidden);
 
-        // --- FIN DE LA SECCIÓN CRÍTICA ---
-
-        confirmModalElement._isResolved = false; // Reinicia el estado de resolución del modal
-        confirmModal.show(); // Muestra el modal
+        confirmModalElement._isResolved = false; 
+        confirmModal.show();
     });
 }
 

@@ -2,7 +2,7 @@ import { API_BASE_URL } from './config.js';
 import { getAuthToken, mostrarLogin } from './login.js';
 import { mostrarMensaje, mostrarConfirmacion, deseleccionarFilas } from './ui.js';
 import { debounce, showLoadingIndicator, hideLoadingIndicator  } from './utils.js';
-import { fetchPacienteById } from './fichaMedica.js';
+import { abrirSelectorPaciente, cerrarSelectorPaciente } from './selectorPaciente.js';
 
 const modalRegistrarCuota = document.getElementById('modalRegistrarCuota');
 const modalRegistrarCuotaElement = new bootstrap.Modal(modalRegistrarCuota);
@@ -12,14 +12,21 @@ const modalRegistrarPago = document.getElementById('modalRegistrarPagoCuota');
 const modalRegistrarPagoElement = new bootstrap.Modal(modalRegistrarPago);
 const formRegistrarPago = document.getElementById('formRegistrarPagoCuota');
 
-const modalSeleccionarPersona = document.getElementById('selectPacienteCuotaModal');
-const modalSeleccionarPersonaElement = new bootstrap.Modal(modalSeleccionarPersona);
+// (El modal de selección de paciente ahora es el componente unificado 'selectorPaciente.js')
 
 const modalGenerarBalance = document.getElementById('modalGenerarBalance');
-const modalGenerarBalanceElement = new bootstrap.Modal(modalGenerarBalance);
+
+const modalConfirmarRestauracion = document.getElementById('modalConfirmarRestauracion');
+const modalConfirmarRestauracionElement = new bootstrap.Modal(modalConfirmarRestauracion);
+
 
 let currentPage = 1;
 const limitPerPage = 200;
+
+// Formateo de los KPIs del modal de balance.
+function fmtMoneda(v){ return '$' + Number(v || 0).toLocaleString('es-UY'); }
+function fmtNumero(v){ return Number(v || 0).toLocaleString('es-UY'); }
+function setKpi(id, texto){ const el = document.getElementById(id); if (el) el.textContent = texto; }
 
 async function fetchCuota(idPaciente,mes,anio) {
 const url = `${API_BASE_URL}/api/cuotas/getCuota?idPaciente=${idPaciente}&mes=${mes}&anio=${anio}`;
@@ -104,7 +111,7 @@ function getFilterParams(){
     const filtroPacienteCedulaCuota = document.getElementById('filtroPacienteCedulaCuota');
     const filtroEstadoCuota = document.getElementById('filtroEstadoCuota');
     const filtroMesCuota = document.getElementById('filtroMesCuota');
-    const filtroSelectAnioCuotas = document.getElementById('selectAnioCuotasFiltro');
+    const filtroSelectAnioCuotas = document.getElementById('anioCuotasFiltro');
 
     const params = new URLSearchParams();
 
@@ -317,7 +324,7 @@ function inicializarTablaCuotas(){
     const inputBuscarCedula = document.getElementById('filtroPacienteCedulaCuota');
     const selectEstado = document.getElementById('filtroEstadoCuota');
     const selectMes = document.getElementById('filtroMesCuota');
-    const selectAnio = document.getElementById('selectAnioCuotasFiltro');
+    const selectAnio = document.getElementById('anioCuotasFiltro');
 
     //Event listeners para los filtrosssss
     const applyFilters = debounce(() => {
@@ -345,18 +352,22 @@ function inicializarTablaCuotas(){
             <option value="Pagada">Pagada</option>
             <option value="Atrasada">Atrasada</option>
         `; 
-        selectEstado.value = 'Pendiente'; 
+        selectEstado.value = 'Pendiente';
         selectEstado.addEventListener('change', applyFilters);
     }
-    
-    renderCuotaTable();
+
+    // No se renderiza en el arranque: la tabla se carga al navegar a la vista
+    // (mostrar -> deseleccionarFilas -> limpiarFiltros -> renderCuotaTable), que ya
+    // está protegida por permiso de admin. Así los usuarios no-admin no disparan un 403.
 }
 
 
 function inicializarCuotaDetailModalListeners(){
     const btnRegistrarPagoCuota = document.getElementById('btnRegistrarPagoCuota');
-    const btnSeleccionarPaciente = document.getElementById('btnSeleccionarPacienteCuotaModal');
+    const btnSeleccionarPaciente = document.getElementById('selectPacienteBtnCuota');
     const btnGenerarBalance = document.getElementById('btnGenerarBalance');
+    const btnConfirmarRestauracion = document.getElementById('btnConfirmarRestauracion');
+    const btnCancelarRestauracion = document.getElementById('btnCancelarRestauracion');
 
     const selectPacienteId = document.getElementById('selectedPacienteIdCuota');
     const selectPacienteName = document.getElementById('selectedPacienteNameCuota');
@@ -369,11 +380,9 @@ function inicializarCuotaDetailModalListeners(){
   
     const btnGuardarCuota = document.getElementById('btnGuardarCuota');
     const btnDarDeBajaCuota = document.getElementById('btnDarDeBajaCuota');
-    
-    modalSeleccionarPersona.addEventListener('show.bs.modal', () => {
-        deseleccionarFilas('divCuotasPaciente');
-    });
 
+    const tbodyGruposRestauracion = document.getElementById('tbodyGruposRestauracion');
+    
     modalRegistrarCuota.addEventListener('show.bs.modal', () => {
         selectPacienteId.value = '';
         selectPacienteName.value = '';
@@ -390,29 +399,19 @@ function inicializarCuotaDetailModalListeners(){
         document.getElementById('selectMesHastaBalance').value='1';
         document.getElementById('selectAnioHastaBalance').value='2025';
 
-        document.getElementById('ingresos1xSemana').value='0';
-        document.getElementById('ingresos2xSemana').value='0';
-        document.getElementById('ingresos3xSemana').value='0';
-        document.getElementById('ingresos4xSemana').value='0';
-        document.getElementById('ingresos5xSemana').value='0';
-        document.getElementById('ingresosOtros').value='0';
-        document.getElementById('ingresosTotales').value='0';
+        ['ingresos1xSemana','ingresos2xSemana','ingresos3xSemana','ingresos4xSemana',
+         'ingresos5xSemana','ingresosOtros','ingresosTotales'].forEach(id => setKpi(id, fmtMoneda(0)));
 
-        document.getElementById('cant1xSemana').value='0';
-        document.getElementById('cant2xSemana').value='0';
-        document.getElementById('cant3xSemana').value='0';
-        document.getElementById('cant4xSemana').value='0';
-        document.getElementById('cant5xSemana').value='0';
-        document.getElementById('cantOtros').value='0';
-        document.getElementById('cantTotal').value='0';
+        ['cant1xSemana','cant2xSemana','cant3xSemana','cant4xSemana',
+         'cant5xSemana','cantOtros','cantTotal'].forEach(id => setKpi(id, fmtNumero(0)));
 
     });
 
     btnRegistrarPagoCuota.addEventListener('click', async (event) => {
         event.preventDefault();
 
-        inputDescripcionPagoCuota.value = '';
-        selectMetodoPagoCuota.value = '';
+        document.getElementById('inputDescripcionPagoCuota').value = '';
+        document.getElementById('selectMetodoPagoCuota').value = '';
         
         
         const selectedRow = document.querySelector('#tablaCuotas tbody tr.table-selected');
@@ -455,9 +454,6 @@ function inicializarCuotaDetailModalListeners(){
                 pagoDescuentoMontoCuota.parentElement.classList.remove('d-none');
             }
 
-
-
-
             pagoCuotaMetodo.value = cuotaSeleccionada[0].metodoPago || '';
 
             labelModalPagoCuota.textContent = 'Registrar Pago';
@@ -474,6 +470,7 @@ function inicializarCuotaDetailModalListeners(){
     });
 
     btnConfirmarPago.addEventListener('click', async (event) => {
+        
         event.preventDefault(); 
         if (!formRegistrarPago.checkValidity()) {
             formRegistrarPago.classList.add('was-validated'); 
@@ -549,59 +546,131 @@ function inicializarCuotaDetailModalListeners(){
                 throw new Error(errorData.message || `Error al pagar/modificar cuota: ${response.statusText}`);
             }
 
-            mostrarMensaje('Pago/Modificación registrada exitosamente.', 'success');
-            modalRegistrarPagoElement.hide();
-            formRegistrarPago.reset();
-            formRegistrarPago.classList.remove('was-validated');
-            renderCuotaTable();
+            const responseData = await response.json();
+
+            console.log('Response Data:', responseData.gruposRestaurables);
+
+            if(responseData.gruposRestaurables && responseData.gruposRestaurables.length > 0){
+                tbodyGruposRestauracion.innerHTML = '';
+                responseData.gruposRestaurables.forEach(grupo => {
+                    const row = tbodyGruposRestauracion.insertRow();
+                    row.insertCell().textContent = grupo.diaSemana;
+                    row.insertCell().textContent = grupo.horaInicio;
+                    row.insertCell().textContent = grupo.horaFin;
+                });
+
+                modalConfirmarRestauracion.dataset.idPaciente = idPaciente;
+                modalRegistrarPagoElement.hide();
+                modalConfirmarRestauracionElement.show();
+
+                formRegistrarPago.reset();
+                formRegistrarPago.classList.remove('was-validated');
+
+
+            } else {
+                mostrarMensaje('Pago/Modificación registrada exitosamente.', 'success');
+                modalRegistrarPagoElement.hide();
+                formRegistrarPago.reset();
+                formRegistrarPago.classList.remove('was-validated');
+                renderCuotaTable();
+            }
 
             } catch (error) {
                 mostrarMensaje('Error al pagar/modificar cuota.', 'danger');
             }
-    });            
+    });           
+    
+    btnConfirmarRestauracion.addEventListener('click', async () => {
+        const idPaciente = modalConfirmarRestauracion.dataset.idPaciente;
+        if (!idPaciente) return;
 
-    btnSeleccionarPaciente.addEventListener('click', async (event) => {                
-        const selectedPacienteRow = document.querySelector('#tablaPacientesSeleccionCuota tbody tr.table-selected');
-        if(selectedPacienteRow){
-            const pacienteId = selectedPacienteRow.dataset.pacienteId; 
-            if(pacienteId){            
+        showLoadingIndicator('loadingOverlayRestauracion');
+        const token = getAuthToken();
+
+        try {
+            const response = await fetch(`${API_BASE_URL}/api/cuotas/restaurarGrupos`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ idPaciente: idPaciente })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || 'Error al restaurar grupos');
+            }
+
+            const data = await response.json();
+
+            modalConfirmarRestauracionElement.hide();
+            if(data.restaurados) {
+                mostrarMensaje('Pago registrado y horarios restaurados exitosamente.', 'success');
+            } else {
+                mostrarMensaje('Pago registrado. No se encontraron grupos para restaurar.', 'info');
+            }
+            
+            renderCuotaTable();
+
+        } catch (error) {
+            console.error(error);
+            mostrarMensaje('Pago registrado, pero hubo un error al restaurar los grupos.', 'warning');
+            modalConfirmarRestauracionElement.hide();
+            renderCuotaTable();
+        } finally {
+            hideLoadingIndicator('loadingOverlayRestauracion');
+        }
+    });
+
+    btnCancelarRestauracion.addEventListener('click', () => {
+        modalConfirmarRestauracionElement.hide();
+        mostrarMensaje('Pago registrado exitosamente. No se restauraron grupos.', 'success');
+        renderCuotaTable();
+    });
+
+    btnSeleccionarPaciente.addEventListener('click', () => {
+        abrirSelectorPaciente({
+            titulo: 'Seleccionar Paciente',
+            textoBoton: 'Seleccionar',
+            onSelect: async (paciente) => {
+                const pacienteId = paciente.id;
                 const token = getAuthToken();
-                    if (!token) {
-                        mostrarMensaje('No hay token de autenticación disponible. Redirigiendo al login.','danger');
-                        mostrarLogin();
-                        return;
-                    }
-                    try {
-                        const response = await fetch(`${API_BASE_URL}/api/pacientes/${pacienteId}`, {
-                            method: 'GET',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            }
-                        });
-                        if (!response.ok) {
-                            if (response.status === 401) {
-                                mostrarLogin();
-                                return; 
-                            }
+                if (!token) {
+                    mostrarMensaje('No hay token de autenticación disponible. Redirigiendo al login.','danger');
+                    mostrarLogin();
+                    return;
+                }
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/pacientes/${pacienteId}`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            mostrarLogin();
+                            return;
+                        }
                         const errorData = await response.json();
                         throw new Error(errorData.message || `Error al obtener paciente: ${response.statusText}`);
                     }
-                        const data = await response.json();
-                        selectPacienteId.value = data.id;
-                        selectPacienteName.value = data.nomyap;
-                        modalSeleccionarPersonaElement.hide();
+                    const data = await response.json();
+                    selectPacienteId.value = data.id;
+                    selectPacienteName.value = data.nomyap;
+                    cerrarSelectorPaciente();
 
-                        const montoTraido = await traerMontoCuota(data.id);
-                        inputMontoNuevaCuota.value = montoTraido.monto;
-
-                    } catch (error) {
-                        console.error('Error en fetchPacienteById:', error);
-                        mostrarMensaje(error.message || 'Error al cargar los datos del paciente.', 'danger');
-                        return null;
-                    }     
+                    const montoTraido = await traerMontoCuota(data.id);
+                    inputMontoNuevaCuota.value = montoTraido.monto;
+                } catch (error) {
+                    console.error('Error en fetchPacienteById:', error);
+                    mostrarMensaje(error.message || 'Error al cargar los datos del paciente.', 'danger');
+                    return null;
+                }
             }
-        }
+        });
     });
 
     btnGuardarCuota.addEventListener('click', async (event) =>{
@@ -768,8 +837,11 @@ function inicializarCuotaDetailModalListeners(){
         const cantOtros = document.getElementById('cantOtros');
         const cantTotal = document.getElementById('cantTotal');
 
+        const fechaDesdeStr = `${anioDesde.value}-${String(mesDesde.value).padStart(2, '0')}-01`;
+        const fechaHastaStr = `${anioHasta.value}-${String(mesHasta.value).padStart(2, '0')}-01`;
+
         try {
-            const response = await fetch(`${API_BASE_URL}/api/cuotas/generarBalance?fechaDesde=${fechaDesde}&fechaHasta=${fechaHasta}`, {
+            const response = await fetch(`${API_BASE_URL}/api/cuotas/generarBalance?fechaDesde=${fechaDesdeStr}&fechaHasta=${fechaHastaStr}`, {
                 method: 'GET',
                 headers: {
                     'Content-Type': 'application/json',
@@ -789,21 +861,21 @@ function inicializarCuotaDetailModalListeners(){
 
             const result = await response.json(); 
         
-            inputIngresos1xSemana.value = result.data.ingreso1xsemana || '0';
-            inputIngresos2xSemana.value = result.data.ingreso2xsemana || '0';
-            inputIngresos3xSemana.value = result.data.ingreso3xsemana || '0';
-            inputIngresos4xSemana.value = result.data.ingreso4xsemana || '0';
-            inputIngresos5xSemana.value = result.data.ingreso5xsemana || '0';
-            inputIngresosOtros.value = result.data.ingresoOtro || '0';
-            inputIngresosTotales.value = result.data.ingresoTotal || '0';
+            inputIngresos1xSemana.textContent = fmtMoneda(result.data.ingreso1xsemana);
+            inputIngresos2xSemana.textContent = fmtMoneda(result.data.ingreso2xsemana);
+            inputIngresos3xSemana.textContent = fmtMoneda(result.data.ingreso3xsemana);
+            inputIngresos4xSemana.textContent = fmtMoneda(result.data.ingreso4xsemana);
+            inputIngresos5xSemana.textContent = fmtMoneda(result.data.ingreso5xsemana);
+            inputIngresosOtros.textContent = fmtMoneda(result.data.ingresoOtro);
+            inputIngresosTotales.textContent = fmtMoneda(result.data.ingresoTotal);
 
-            cant1xsemana.value = result.data.cant1xsemana || '0';
-            cant2xsemana.value = result.data.cant2xsemana || '0';
-            cant3xsemana.value = result.data.cant3xsemana || '0';
-            cant4xsemana.value = result.data.cant4xsemana || '0';
-            cant5xsemana.value = result.data.cant5xsemana || '0';
-            cantOtros.value = result.data.cantOtros || '0';
-            cantTotal.value = result.data.cantTotal || '0';
+            cant1xsemana.textContent = fmtNumero(result.data.cant1xsemana);
+            cant2xsemana.textContent = fmtNumero(result.data.cant2xsemana);
+            cant3xsemana.textContent = fmtNumero(result.data.cant3xsemana);
+            cant4xsemana.textContent = fmtNumero(result.data.cant4xsemana);
+            cant5xsemana.textContent = fmtNumero(result.data.cant5xsemana);
+            cantOtros.textContent = fmtNumero(result.data.cantOtro);
+            cantTotal.textContent = fmtNumero(result.data.cantTotal);
 
             mostrarMensaje(`Balance generado exitosamente.`, 'success');            
             } catch (error) {

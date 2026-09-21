@@ -1,14 +1,55 @@
 :root {
-    --primary-blue: #223D52;
-    --accent-blue: #448AFF;
-    --light-bg: #F5F5F5;
-    --light-grey: #B4B4B4;
-    --text-color: #323232;
-    --error-color: #dc3545; 
-    --white-text: #FFFFFF; 
-       
+    /* =====================================================================
+       PRIMITIVOS — la "paleta" cruda. Para un rediseño, cambiar estos valores.
+       ===================================================================== */
+    --c-brand:         #223D52;  /* azul principal       */
+    --c-brand-dark:    #1A2F40;  /* azul principal hover */
+    --c-accent:        #2563C9;  /* azul de accion (refinado desde #448AFF) */
+    --c-bg:            #F5F5F5;  /* fondo claro          */
+    --c-grey:          #B4B4B4;  /* gris                 */
+    --c-grey-dark:     #A0A0A0;  /* gris hover           */
+    --c-grey-050:      #f9f9f9;  /* gris muy claro       */
+    --c-grey-350:      #b0b0b0;  /* gris medio           */
+    --c-ink:           #323232;  /* texto                */
+    --c-white:         #FFFFFF;
+    --c-danger:        #dc3545;
+    --c-danger-dark:   #c82333;
+    --c-warning:       #ffc107;
+    --c-warning-dark:  #E0A800;
+    --c-success:       #28a745;
+    --c-success-dark:  #218838;
+    --c-cell:          #E0ECF8;  /* celda clickable      */
+    --c-cell-hover:    #D0E0F0;
 
-    --nav-item-hover-bg: rgba(68, 138, 255, 0.1); 
+    /* colores de estado de cuota */
+    --c-estado-pend-bg: #FFF3CD;  --c-estado-pend-fg: #856404;
+    --c-estado-pag-bg:  #D4EDDA;  --c-estado-pag-fg:  #155724;
+    --c-estado-atr-bg:  #F8D7DA;  --c-estado-atr-fg:  #721C24;
+
+    /* =====================================================================
+       SEMÁNTICOS — el "uso". Referencian a los primitivos.
+       ===================================================================== */
+    --primary-blue: var(--c-brand);
+    --accent-blue:  var(--c-accent);
+    --light-bg:     var(--c-bg);
+    --light-grey:   var(--c-grey);
+    --text-color:   var(--c-ink);
+    --white-text:   var(--c-white);
+
+    --error-color:  var(--c-danger);
+    --danger-color: var(--c-danger);
+    --danger-btn-bg: var(--c-danger);
+    --danger-btn-hover-bg: var(--c-danger-dark);
+
+    --warning-color: var(--c-warning);
+    --warning-btn-bg: var(--c-warning);
+    --warning-btn-hover-bg: var(--c-warning-dark);
+
+    --success-color: var(--c-success);
+    --success-btn-bg: var(--c-success);
+    --success-btn-hover-bg: var(--c-success-dark);
+
+    --nav-item-hover-bg: rgba(37, 99, 201, 0.12);
     --active-nav-item-bg: var(--accent-blue);
 
     --table-header-bg: var(--primary-blue);
@@ -16,42 +57,72 @@
     --table-border-color: rgba(34, 61, 82, 0.2);
 
     --cell-empty-bg: var(--light-bg);
-    --cell-clickable-bg: #E0ECF8; 
-    --cell-hover-bg: #D0E0F0; 
+    --cell-clickable-bg: var(--c-cell);
+    --cell-hover-bg: var(--c-cell-hover);
 
-    --badge-bg: var(--accent-blue); 
-    
-    --error-color: #dc3545;
-    --button-agenda-bg: var(--primary-blue); 
-    --button-agenda-hover-bg: #1A2F40; 
+    --badge-bg: var(--accent-blue);
 
-    --info-btn-bg: var(--accent-blue); 
-    --info-btn-hover-bg: #B4B4B4; 
+    --button-agenda-bg: var(--primary-blue);
+    --button-agenda-hover-bg: var(--c-brand-dark);
 
-    --warning-color: #ffc107; 
-    --warning-btn-bg: #FFC107;
-    --warning-btn-hover-bg: #E0A800; 
+    --info-btn-bg: var(--accent-blue);
+    --info-btn-hover-bg: var(--c-grey);
 
-    --success-color: #28a745; 
-    --success-btn-bg: #28a745; 
-    --success-btn-hover-bg: #218838;
-
-    --ficha-header-bg: var(--primary-blue); 
-    --ficha-border-color: var(--table-border-color); 
-    --diagnostico-btn-bg: var(--accent-blue); 
-    --diagnostico-btn-hover-bg: var(--primary-blue); 
-
-    --danger-color: #dc3545; 
-    --danger-btn-bg: #dc3545; 
-    --danger-btn-hover-bg: #c82333; 
+    --ficha-header-bg: var(--primary-blue);
+    --ficha-border-color: var(--table-border-color);
+    --diagnostico-btn-bg: var(--accent-blue);
+    --diagnostico-btn-hover-bg: var(--primary-blue);
 
     --primary-btn-bg: var(--primary-blue);
-    --primary-btn-hover-bg: #1A2F40;
+    --primary-btn-hover-bg: var(--c-brand-dark);
+
+    /* estados de cuota (semánticos) */
+    --estado-pendiente-bg: var(--c-estado-pend-bg);  --estado-pendiente-fg: var(--c-estado-pend-fg);
+    --estado-pagada-bg:    var(--c-estado-pag-bg);   --estado-pagada-fg:    var(--c-estado-pag-fg);
+    --estado-atrasada-bg:  var(--c-estado-atr-bg);   --estado-atrasada-fg:  var(--c-estado-atr-fg);
+
+    /* =====================================================================
+       SOMBRAS y FOCO — tokenizados (antes literales repetidos).
+       ===================================================================== */
+    --focus-ring:   0 0 0 0.25rem rgba(37, 99, 201, 0.25);
+    --shadow-card:  0 4px 15px rgba(0, 0, 0, 0.1);
+    --shadow-table: 0 4px 15px rgba(0, 0, 0, 0.08);
+    --shadow-modal: 0 8px 30px rgba(0, 0, 0, 0.15);
+    --shadow-hover: 0 3px 10px rgba(0, 0, 0, 0.1);
+    --shadow-nav:   0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
 
 body{
   background-color: var(--light-bg);
+  color: var(--text-color);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* =====================================================================
+   TIPOGRAFÍA — sin dependencias nuevas: fuente del sistema + escala.
+   Mejora jerarquía (pesos/tracking) y alinea los números (montos,
+   cédulas, horarios) con font-variant-numeric: tabular-nums.
+   ===================================================================== */
+h1, h2, h3, h4, h5, h6 {
+    letter-spacing: -0.012em;
+    color: var(--text-color);
+}
+h1, h2, h3 { font-weight: 700; }
+
+/* Títulos de sección de cada vista, un poco más presentes */
+#divAgenda h2, #divPaciente h2, #divFichaMedica h2,
+#divNombreDiagnostico h2, #divCuotas h2, #divAgendaPersonal h2 {
+    letter-spacing: -0.02em;
+}
+
+/* Números tabulares donde importa la alineación en columna */
+table,
+.form-control,
+#tablaPacientes, #tablaCuotas, #tablaPacientesSelector,
+#tablaAgendaSemanal, #calendar {
+    font-variant-numeric: tabular-nums;
 }
 
 
@@ -65,7 +136,7 @@ body{
 /* Card del Login */
 #divLogin .card {
     border: none; 
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1); 
+    box-shadow: var(--shadow-card); 
     border-radius: 0.75rem; 
     background-color: white; 
 }
@@ -98,7 +169,7 @@ body{
 
 #divLogin .card .form-control:focus {
     border-color: var(--accent-blue); 
-    box-shadow: 0 0 0 0.25rem rgba(68, 138, 255, 0.25); 
+    box-shadow: var(--focus-ring); 
 }
 
 /* Checkbox */
@@ -108,7 +179,7 @@ body{
 }
 
 #divLogin .card .form-check-input:focus {
-    box-shadow: 0 0 0 0.25rem rgba(68, 138, 255, 0.25); 
+    box-shadow: var(--focus-ring); 
 }
 
 #divLogin .card .form-check-label {
@@ -172,7 +243,7 @@ body{
 /* Base del navbar */
 #navbar {
     background-color: var(--primary-blue); 
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-nav);
     padding-top: 0.5rem; 
     padding-bottom: 0.5rem;
 }
@@ -296,7 +367,7 @@ body{
     border-color: var(--table-border-color); 
     border-radius: 0.75rem;
     overflow: hidden; 
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow-table);
     background-color: white;
 }
 
@@ -389,7 +460,7 @@ body{
 /* contenedor principal */
 .modal-content {
     border-radius: 0.75rem;
-    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.15); 
+    box-shadow: var(--shadow-modal); 
     border: none; 
     background-color: white; 
 }
@@ -454,7 +525,7 @@ body{
 .modal .btn-primary:hover {
     background-color: var(--primary-blue); 
     border-color: var(--primary-blue);
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-hover);
 }
 
 /* boton secundario */
@@ -465,8 +536,8 @@ body{
     transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 .modal .btn-secondary:hover {
-    background-color: #A0A0A0; 
-    border-color: #A0A0A0;
+    background-color: var(--c-grey-dark); 
+    border-color: var(--c-grey-dark);
     color: var(--white-text); 
 }
 
@@ -522,7 +593,7 @@ body{
 .btn-primary:hover {
     background-color: var(--primary-blue) !important;
     border-color: var(--primary-blue) !important;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-hover);
 }
 
 /* Botón Secundario */
@@ -533,8 +604,8 @@ body{
     transition: background-color 0.2s ease, border-color 0.2s ease;
 }
 .btn-secondary:hover {
-    background-color: #A0A0A0 !important;
-    border-color: #A0A0A0 !important;
+    background-color: var(--c-grey-dark) !important;
+    border-color: var(--c-grey-dark) !important;
     color: var(--white-text) !important;
 }
 
@@ -548,7 +619,7 @@ body{
 .btn-info:hover {
     background-color: var(--info-btn-hover-bg) !important;
     border-color: var(--info-btn-hover-bg) !important;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-hover);
 }
 
 .btn-warning {
@@ -561,7 +632,7 @@ body{
 .btn-warning:hover {
     background-color: var(--warning-btn-hover-bg) !important;
     border-color: var(--warning-btn-hover-bg) !important;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-hover);
 }
 
 .btn-danger {
@@ -574,7 +645,7 @@ body{
 .btn-danger:hover {
     background-color: var(--danger-btn-hover-bg) !important;
     border-color: var(--danger-btn-hover-bg) !important;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-hover);
 }
 
 .btn-outline-danger {
@@ -599,7 +670,7 @@ body{
 .btn-success:hover {
     background-color: var(--success-btn-hover-bg) !important;
     border-color: var(--success-btn-hover-bg) !important;
-    box-shadow: 0 3px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-hover);
 }
 
 /* PARA EL DIV DE PACIENTES */
@@ -630,7 +701,7 @@ body{
 .form-control:focus,
 .form-select:focus {
     border-color: var(--accent-blue);
-    box-shadow: 0 0 0 0.25rem rgba(68, 138, 255, 0.25); 
+    box-shadow: var(--focus-ring); 
 }
 
 .form-text {
@@ -647,7 +718,7 @@ body{
     border-radius: 0.75rem;
     overflow-x: auto;
     margin-top: 1.5rem;
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    box-shadow: var(--shadow-table);
     position: relative;
 }
 
@@ -666,11 +737,7 @@ body{
     border-radius: 0.75rem; 
 }
 
-/* .loading-overlay .spinner-border {
-    color: var(--accent-blue) !important; 
-    width: 3rem;
-    height: 3rem;
-} */
+
 
 .loading-image {
     width: 60px;  /* Ajusta el tamaño de tu imagen según necesites */
@@ -743,21 +810,21 @@ body{
 }
 
 .table-pendiente {
-    background-color: #FFF3CD !important; /* Un amarillo pastel para indicar 'pendiente' */
-    color: #856404 !important;          /* Texto oscuro para legibilidad */
+    background-color: var(--estado-pendiente-bg) !important; /* Un amarillo pastel para indicar 'pendiente' */
+    color: var(--estado-pendiente-fg) !important;          /* Texto oscuro para legibilidad */
     font-style: italic;                  /* Para distinguirlo de otros estados */
 }
 
 /* Pagada (Verde Suave) */
 .table-pagada {
-    background-color: #D4EDDA !important; 
-    color: #155724 !important;          
+    background-color: var(--estado-pagada-bg) !important; 
+    color: var(--estado-pagada-fg) !important;          
 }
 
 /* Atrasada (Rojo Suave) */
 .table-atrasada {
-    background-color: #F8D7DA !important; 
-    color: #721C24 !important;          
+    background-color: var(--estado-atrasada-bg) !important; 
+    color: var(--estado-atrasada-fg) !important;          
     font-weight: 500;                    
 }
 
@@ -803,10 +870,8 @@ body{
 
 #tablaPacientes tbody tr,
 #tablaCuotas tbody tr,
-#tablaPacientesSeleccionSesion tbody tr,
-#tablaPacientesSeleccion tbody tr,
-#modalTablaSesiones tbody tr,
-#tablaPacientesSeleccionCuota tbody tr {
+#tablaPacientesSelector tbody tr,
+#modalTablaSesiones tbody tr {
     cursor: pointer;
 }
 
@@ -983,8 +1048,8 @@ body{
 
 /* Colores y estilos para días del mes anterior/siguiente */
 .calendar-day.other-month {
-    background-color: #f9f9f9;
-    color: #b0b0b0;
+    background-color: var(--c-grey-050);
+    color: var(--c-grey-350);
 }
 
 /* Estilos para el número del día */
@@ -1079,24 +1144,82 @@ body{
     margin-bottom: 0.5rem;
 }
 
+/* Accesibilidad: respetar "reducir movimiento" del sistema. Aditivo:
+   solo afecta a usuarios que lo activaron; no cambia el aspecto normal. */
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}
 
+/* =====================================================================
+   TARJETAS KPI — usadas en el modal "Generar Balance" (facturación).
+   Reemplazan los inputs grises por métricas legibles. Usan los tokens
+   de la paleta para integrarse con el resto del sistema de diseño.
+   ===================================================================== */
+.balance-kpi-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.75rem;
+}
 
-/* .ql-editor img {
-    max-width: 400px; 
-    max-height: 450px; 
-    
-    
-    width: auto;
-    height: auto;
-    
-    margin: 0 auto;
-} */
+.kpi-card {
+    background-color: var(--c-white);
+    border: 1px solid var(--table-border-color);
+    border-left: 4px solid var(--c-accent);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    box-shadow: var(--shadow-hover);
+}
 
-/* .ql-editor img {
+.kpi-card .kpi-label {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--c-grey-dark);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-bottom: 0.15rem;
+}
 
-width: 600px;
+.kpi-card .kpi-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+    color: var(--c-brand);
+}
 
-height: auto;
+.kpi-card .kpi-sub {
+    font-size: 0.8rem;
+    color: var(--c-grey-dark);
+    margin-top: 0.15rem;
+}
 
-margin: 0 auto;
-}  */
+/* Tarjeta de total: destacada (fondo de marca, texto claro). */
+.kpi-card--total {
+    background-color: var(--c-brand);
+    border-color: var(--c-brand);
+    border-left-color: var(--c-success);
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.kpi-card--total .kpi-label,
+.kpi-card--total .kpi-sub {
+    color: rgba(255, 255, 255, 0.75);
+}
+
+.kpi-card--total .kpi-value {
+    color: var(--c-white);
+    font-size: 1.9rem;
+}
+
+/* En pantallas chicas, 2 columnas para que no se aprieten. */
+@media (max-width: 575.98px) {
+    .balance-kpi-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}

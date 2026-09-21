@@ -3,18 +3,15 @@ import { getAuthToken, mostrarLogin } from './login.js';
 import { mostrarMensaje, mostrarConfirmacion } from './ui.js';
 import { deseleccionarFilas } from './ui.js';
 import { showLoadingIndicator, hideLoadingIndicator } from './utils.js';
+import { abrirSelectorPaciente, cerrarSelectorPaciente } from './selectorPaciente.js';
 
 const agendaDetailModalElement = document.getElementById('agendaDetailModal');
 const agendaDetailModal = new bootstrap.Modal(agendaDetailModalElement);
 
-const modalElement = document.getElementById('selectPacienteModal');
-const modalAgregarPaciente = new bootstrap.Modal(modalElement);
+// (El modal de selección de paciente ahora es el componente unificado 'selectorPaciente.js')
 
 const modalElementFisio = document.getElementById('modalAgregarFisios');
 const modalAgregarFisio = new bootstrap.Modal(modalElementFisio);
-
-const modalFijarseHorarioPaciente = document.getElementById('selectPacienteFijarseHorarioModal');
-const modalFijarseHorarioPacienteElement = new bootstrap.Modal(modalFijarseHorarioPaciente);
 
 const modalFijarseHorario = document.getElementById('fijarseHorarioModal');
 const modalFijarseHorarioElement = new bootstrap.Modal(modalFijarseHorario);
@@ -286,14 +283,6 @@ function inicializarAgendaDetailModalListeners() {
 
     });
 
-    modalElement.addEventListener('show.bs.modal', function () {
-    deseleccionarFilas('divAgenda');
-    });
-
-    modalFijarseHorarioPaciente.addEventListener('show.bs.modal', function () {
-    deseleccionarFilas('divAgendaFijarseHorario');
-    });
-
     modalFijarseHorario.addEventListener('show.bs.modal', function () {
         document.getElementById('selectedPacienteNameFijarseHorario').textContent = '';
         document.getElementById('selectedPacienteNameFijarseHorario').value = '';
@@ -306,44 +295,54 @@ function inicializarAgendaDetailModalListeners() {
 
     });
 
-    document.getElementById('btnSeleccionarPacienteModal').addEventListener('click', async () => {
-        
-
+    document.getElementById('btnAgregarPacienteHorario').addEventListener('click', () => {
         const horarioDataString = agendaDetailModalElement.dataset.currentHorario;
-        if (horarioDataString) {
-            const currentHorario = JSON.parse(horarioDataString);
-            const diaSemana = currentHorario.diaSemana;
-            const horaInicio = currentHorario.horaInicio;
-            const horaFin = currentHorario.horaFin;
+        if (!horarioDataString) {
+            mostrarMensaje('Error: No hay un horario seleccionado en el modal.', 'danger');
+            return;
+        }
 
-            if(!diaSemana || !horaInicio || !horaFin){
-                mostrarMensaje('No se pudieron obtener los datos del horario.', 'warning');
-            } else {
-            
-                const selectedPacienteRow = document.querySelector('#tablaPacientesSeleccion tbody tr.table-selected');
-            if(selectedPacienteRow){
-                const pacienteId = selectedPacienteRow.dataset.pacienteId; 
-                if(pacienteId){
-                    const confirmacion = await mostrarConfirmacion('¿Está seguro que desea agregar el paciente a este horario?');
-                    if(!confirmacion){
-                        mostrarMensaje('Paciente no agregado', 'info');
-                    }
-    
-                    const grupoPacienteData = {
-                        diaSemana: diaSemana,
-                        horaInicio: horaInicio,
-                        horaFin: horaFin,
-                        idPaciente: pacienteId
-                    }
-                    const token = getAuthToken();
+        abrirSelectorPaciente({
+            titulo: 'Agregar Paciente al Horario',
+            textoBoton: 'Agregar Paciente',
+            onSelect: async (paciente) => {
+                const currentHorario = JSON.parse(horarioDataString);
+                const diaSemana = currentHorario.diaSemana;
+                const horaInicio = currentHorario.horaInicio;
+                const horaFin = currentHorario.horaFin;
 
-                    if (!token) {
-                        mostrarMensaje('No hay token de autenticación disponible. Redirigiendo al login.','danger');
-                        mostrarLogin();
-                        return;
-                    }
+                if(!diaSemana || !horaInicio || !horaFin){
+                    mostrarMensaje('No se pudieron obtener los datos del horario.', 'warning');
+                    return;
+                }
 
-                    try {
+                const pacienteId = paciente.id;
+                if(!pacienteId){
+                    mostrarMensaje('No se pudo obtener el ID del paciente seleccionado.', 'warning');
+                    return;
+                }
+
+                const confirmacion = await mostrarConfirmacion('¿Está seguro que desea agregar el paciente a este horario?');
+                if(!confirmacion){
+                    mostrarMensaje('Paciente no agregado', 'info');
+                    return; // si el usuario cancela, no se agrega (antes seguía y lo agregaba igual)
+                }
+
+                const grupoPacienteData = {
+                    diaSemana: diaSemana,
+                    horaInicio: horaInicio,
+                    horaFin: horaFin,
+                    idPaciente: pacienteId
+                };
+                const token = getAuthToken();
+
+                if (!token) {
+                    mostrarMensaje('No hay token de autenticación disponible. Redirigiendo al login.','danger');
+                    mostrarLogin();
+                    return;
+                }
+
+                try {
                     const response = await fetch(`${API_BASE_URL}/api/agenda/agregarPacienteGrupo`, {
                         method: 'PUT',
                         headers: {
@@ -364,33 +363,22 @@ function inicializarAgendaDetailModalListeners() {
                     }
                     mostrarMensaje('Paciente agregado exitosamente.', 'success');
 
-                    modalAgregarPaciente.hide();
+                    cerrarSelectorPaciente();
                     const horarioActualizado = await fetchHorarioByCompositeKey(diaSemana, horaInicio, horaFin);
                     if (horarioActualizado) {
-                        modalAgregarPaciente.hide();
                         showAgendaDetailModal(horarioActualizado);
-                        renderAgendaTable(); 
+                        renderAgendaTable();
                     } else {
-                        agendaDetailModal.hide(); 
+                        agendaDetailModal.hide();
                         renderAgendaTable();
                         mostrarMensaje('Paciente agregado, pero no se pudo actualizar el detalle del horario. Reabrir el modal para ver los cambios.', 'warning');
                     }
-                    
-
                 } catch (error) {
                     console.error('Error al agregar paciente:', error);
                     mostrarMensaje(error.message || 'Error al agregar paciente.', 'danger');
                 }
-                }else{
-                    mostrarMensaje('No se pudo obtener el ID del paciente seleccionado.', 'warning');
-                }
-            }else{
-                mostrarMensaje('Por favor, selecciona un paciente de la tabla para agregarlo al horario.', 'info');
             }
-        }      
-        } else {
-            mostrarMensaje('Error: No hay un horario seleccionado en el modal.', 'danger');
-        }
+        });
     });
 
     document.getElementById('btnEliminarPacienteHorario').addEventListener('click', async () => {
@@ -725,46 +713,46 @@ function inicializarAgendaDetailModalListeners() {
         }
     });
 
-    document.getElementById('btnSeleccionarPacienteModalFijarseHorario').addEventListener('click', async () => {        
-        const selectedPacienteRow = document.querySelector('#tablaPacientesSeleccionFijarseHorario tbody tr.table-selected');
-        if(selectedPacienteRow){
-            const pacienteId = selectedPacienteRow.dataset.pacienteId; 
-            if(pacienteId){            
+    document.getElementById('selectPacienteBtnFijarseHorario').addEventListener('click', () => {
+        abrirSelectorPaciente({
+            titulo: 'Seleccionar Paciente',
+            textoBoton: 'Seleccionar',
+            onSelect: async (paciente) => {
+                const pacienteId = paciente.id;
                 const token = getAuthToken();
-                    if (!token) {
-                        mostrarMensaje('No hay token de autenticación disponible. Redirigiendo al login.','danger');
-                        mostrarLogin();
-                        return;
-                    }
-                    try {
-                        const response = await fetch(`${API_BASE_URL}/api/pacientes/${pacienteId}`, {
-                            method: 'GET',
-                            headers: {
-                                'Content-Type': 'application/json',
-                                'Authorization': `Bearer ${token}`
-                            }
-                        });
-                        if (!response.ok) {
-                            if (response.status === 401) {
-                                mostrarLogin();
-                                return; 
-                            }
+                if (!token) {
+                    mostrarMensaje('No hay token de autenticación disponible. Redirigiendo al login.','danger');
+                    mostrarLogin();
+                    return;
+                }
+                try {
+                    const response = await fetch(`${API_BASE_URL}/api/pacientes/${pacienteId}`, {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        }
+                    });
+                    if (!response.ok) {
+                        if (response.status === 401) {
+                            mostrarLogin();
+                            return;
+                        }
                         const errorData = await response.json();
                         throw new Error(errorData.message || `Error al obtener paciente: ${response.statusText}`);
                     }
-                        const data = await response.json();
-                        document.getElementById('selectedPacienteIdFijarseHorario').value = data.id;
-                        document.getElementById('selectedPacienteNameFijarseHorario').value = data.nomyap;
+                    const data = await response.json();
+                    document.getElementById('selectedPacienteIdFijarseHorario').value = data.id;
+                    document.getElementById('selectedPacienteNameFijarseHorario').value = data.nomyap;
 
-                        modalFijarseHorarioPacienteElement.hide();
-                      
-                    } catch (error) {
-                        console.error('Error en fetchPacienteById:', error);
-                        mostrarMensaje(error.message || 'Error al cargar los datos del paciente.', 'danger');
-                        return null;
-                    }     
+                    cerrarSelectorPaciente();
+                } catch (error) {
+                    console.error('Error en fetchPacienteById:', error);
+                    mostrarMensaje(error.message || 'Error al cargar los datos del paciente.', 'danger');
+                    return null;
+                }
             }
-        }
+        });
     });
 
     document.getElementById('btnFijarseHorarioPaciente').addEventListener('click', async () => {

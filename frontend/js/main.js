@@ -2,13 +2,15 @@ import { inicializarNavbar, adjustBodyPadding, navItemActive } from './navbar.js
 import { inicializarAgregarModificarPaciente, inicializarPatientTable, inicializarEliminarPaciente } from './pacientes.js';
 import { inicializarFichaMedica } from './fichaMedica.js';
 import { inicializarAgenda } from './agenda.js';
-import { mostrarLogin, inicializarLogin, ocultarLogin, getAuthToken } from './login.js';
+import { mostrarLogin, inicializarLogin, ocultarLogin, getAuthToken, esAdministrador } from './login.js';
 import { inicializarNombreDiagnostico, inicializarAgregarModificarNombreDiagnostico, inicializarAgregarDiagnosticoPaciente,
          inicializarEliminarDiagnosticoPaciente, inicializarEliminarNombreDiagnostico } from './diagnosticos.js';
 import { populateAllDiagnosticosSelects, populateAllFisiosSelects, populateAllYearSelects} from './utils.js';
 import { mostrar } from './ui.js';
 import { inicializarCalendario } from './calendario.js';
 import { inicializarCuota } from './cuota.js';
+import { inicializarTarifas } from './tarifas.js';
+import { initSelectorPaciente } from './selectorPaciente.js';
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -54,57 +56,19 @@ function inicializarAplicacionPrincipal(){
         
     );
 
-    //PARA LA TABLA DE AGREGAR PACIENTE A UN HORARIO
+    //PARA EL SELECTOR DE PACIENTE UNIFICADO (reemplaza a los 4 modales duplicados)
     inicializarPatientTable(
-        'tablaPacientesSeleccion',
-        'inputBuscarNombreSeleccion',
-        'inputBuscarCedulaSeleccion',
-        'selectDiagnosticosBuscarSeleccion',
-        'selectActiveSeleccion',
-        'contadorPacientesSeleccion',
-        'paginationControlsSeleccion',
-        ['btnSeleccionarPacienteModal'],
-        'tableLoadingOverlaySeleccion'
+        'tablaPacientesSelector',
+        'inputBuscarNombreSelector',
+        'inputBuscarCedulaSelector',
+        'selectDiagnosticosSelector',
+        'selectActiveSelector',
+        'contadorPacientesSelector',
+        'paginationControlsSelector',
+        ['btnConfirmarSeleccionPaciente'],
+        'tableLoadingOverlaySelector'
     );
-
-    //PARA LA TABLA DE AGREGAR PACIENTE A UNA SESION
-    inicializarPatientTable(
-        'tablaPacientesSeleccionSesion',
-        'inputBuscarNombreSeleccionSesion',
-        'inputBuscarCedulaSeleccionSesion',
-        'selectDiagnosticosBuscarSeleccionSesion',
-        'selectActiveSeleccionSesion',
-        'contadorPacientesSeleccionSesion',
-        'paginationControlsSeleccionSesion',
-        ['btnSeleccionarPacienteModalSesion'],
-        'tableLoadingOverlaySeleccionSesion'
-    );
-
-    //PARA LA TABLA DE AGREGAR PACIENTE A CUOTA
-    inicializarPatientTable(
-        'tablaPacientesSeleccionCuota',
-        'inputBuscarNombreSeleccionCuota',
-        'inputBuscarCedulaSeleccionCuota',
-        'selectDiagnosticosBuscarSeleccionCuota',
-        'selectActiveSeleccionCuota',
-        'contadorPacientesSeleccionCuota',
-        'paginationControlsSeleccionCuota',
-        ['btnSeleccionarPacienteCuotaModal'],
-        'tableLoadingOverlaySeleccionCuota'
-    );
-    
-    //PARA LA TABLA DE AGREGAR PACIENTE A FIJARSE HORARIO
-    inicializarPatientTable(
-        'tablaPacientesSeleccionFijarseHorario',
-        'inputBuscarNombreSeleccionFijarseHorario',
-        'inputBuscarCedulaSeleccionFijarseHorario',
-        'selectDiagnosticosBuscarSeleccionFijarseHorario',
-        'selectActiveSeleccionFijarseHorario',
-        'contadorPacientesSeleccionFijarseHorario',
-        'paginationControlsSeleccionFijarseHorario',
-        ['btnSeleccionarPacienteModalFijarseHorario'],
-        'tableLoadingOverlaySeleccionFijarseHorario'
-    );
+    initSelectorPaciente();
 
 
 
@@ -124,10 +88,15 @@ function inicializarAplicacionPrincipal(){
     inicializarNombreDiagnostico();
 
     inicializarCuota();
+    inicializarTarifas();
 
     populateAllDiagnosticosSelects();
     populateAllFisiosSelects();
     populateAllYearSelects();
+
+    // El menú "Facturación" arranca oculto (hidden en el HTML) y sólo se muestra si el
+    // usuario logueado es administrador (tabla `administrador`).
+    aplicarPermisosFacturacion();
 
     initializeAppAndHidePreloader();
     mostrar('divAgenda');
@@ -146,6 +115,13 @@ window.addEventListener('DOMContentLoaded', async () => {
     }
 });
 
+
+async function aplicarPermisosFacturacion() {
+    const liFacturacion = document.getElementById('liFacturacion');
+    if (!liFacturacion) return;
+    const admin = await esAdministrador();
+    liFacturacion.hidden = !admin;
+}
 
 function cambioDeVista(divId) {
     switch (divId) {
