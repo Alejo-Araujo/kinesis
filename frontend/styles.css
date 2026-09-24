@@ -20,6 +20,7 @@
     --c-success-dark:  #218838;
     --c-cell:          #E0ECF8;  /* celda clickable      */
     --c-cell-hover:    #D0E0F0;
+    --c-page-bg:       #E8F1FB;  /* celeste suave: fondo de la página (armoniza con la paleta azul; las tablas quedan blancas) */
 
     /* colores de estado de cuota */
     --c-estado-pend-bg: #FFF3CD;  --c-estado-pend-fg: #856404;
@@ -94,8 +95,9 @@
 
 
 body{
-  background-color: var(--light-bg);
+  background-color: var(--c-page-bg);
   color: var(--text-color);
+  font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -355,13 +357,6 @@ table,
     margin-bottom: 50px; 
 }
 
-#divAgenda h2 {
-    color: var(--text-color);
-    font-weight: 600; 
-    margin-bottom: 1.5rem; 
-    text-align: center;
-}
-
 /* Tabla de la Agenda Semanal */
 #tablaAgendaSemanal {
     border-color: var(--table-border-color); 
@@ -397,14 +392,14 @@ table,
 
 /* Celda de Horario (Primera columna) */
 #tablaAgendaSemanal tbody tr td:first-child {
-    background-color: var(--cell-empty-bg); 
-    font-weight: 500; 
+    background-color: var(--cell-empty-bg);
+    font-weight: 500;
     color: var(--primary-blue);
 }
 
 /* Celdas Vacías (sin horario asignado) - de agenda.js `table-light` */
 #tablaAgendaSemanal tbody td.table-light {
-    background-color: var(--cell-empty-bg) !important; 
+    background-color: var(--cell-empty-bg) !important;
     color: var(--light-grey);
 }
 
@@ -437,24 +432,7 @@ table,
     font-style: italic;
 }
 
-/* Botón "Agregar Horario" */
-#btnAgregarHorario {
-    background-color: var(--button-agenda-bg) !important; 
-    border-color: var(--button-agenda-bg) !important;
-    color: var(--white-text) !important; 
-    padding: 0.6rem 1.2rem;
-    font-size: 1rem;
-    font-weight: 600;
-    border-radius: 0.5rem;
-    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
-}
-
-#btnAgregarHorario:hover {
-    background-color: var(--button-agenda-hover-bg) !important;
-    border-color: var(--button-agenda-hover-bg) !important;
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
-}
-
+/* El botón "Agregar" de la agenda usa el estilo estándar .btn.btn-success (igual que los demás). */
 
 /*ESTILOS PARA LOS MODALS*/
 /* contenedor principal */
@@ -770,19 +748,45 @@ table,
 }
 
 #tablaPacientes thead,
-#tablaCuotas thead {
+#tablaCuotas thead,
+#tablaTarifas thead,
+#tablaUsuarios thead,
+#tablaNombresDiagnosticos thead {
     background-color: var(--table-header-bg);
     color: var(--table-header-text);
     font-weight: 600;
 }
 
 #tablaPacientes thead th,
-#tablaCuotas thead th {
+#tablaCuotas thead th,
+#tablaTarifas thead th,
+#tablaUsuarios thead th,
+#tablaNombresDiagnosticos thead th {
     border-color: var(--table-border-color);
     padding: 0.8rem 0.5rem;
     text-align: center;
     vertical-align: middle;
     color: var(--table-header-text);
+    background-color: var(--table-header-bg); /* fondo opaco propio de la celda (necesario al fijar el header) */
+}
+
+/* Títulos de columna centrados en TODAS las tablas. */
+.table thead th {
+    text-align: center;
+    vertical-align: middle;
+}
+
+/* Encabezados de columna fijos mientras se scrollea verticalmente
+   (aplica a toda tabla dentro de un contenedor con scroll .table-scroll). */
+.table-scroll table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    box-shadow: inset 0 -1px 0 var(--table-border-color); /* borde inferior que no se pierde al scrollear */
+}
+/* Las tablas con thead claro necesitan fondo opaco para que las filas no se transparenten. */
+.table-scroll table thead.table-light th {
+    background-color: #f8f9fa;
 }
 
 #tablaPacientes tbody td,
@@ -868,7 +872,7 @@ table,
     border-left: none !important; 
 }
 
-#tablaPacientes tbody tr,
+/* La tabla principal de pacientes NO es seleccionable (usa botones de acción por fila). */
 #tablaCuotas tbody tr,
 #tablaPacientesSelector tbody tr,
 #modalTablaSesiones tbody tr {
@@ -920,12 +924,6 @@ table,
 }
 
 /* FICHA MEDICA */
-#divFichaMedica h2 {
-    color: var(--primary-blue);
-    font-weight: 600;
-    margin-bottom: 1.5rem;
-}
-
 #divFichaMedica .card {
     border-color: var(--ficha-border-color) !important;
     box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075); 
@@ -993,8 +991,9 @@ table,
 
 /* ESTILOS PARA TABLAS */
 .table-scroll {
-  max-height: 400px; 
-  overflow-y: auto; 
+  max-height: 400px;
+  overflow-y: auto;
+  background-color: white; /* la tabla es una "tarjeta" blanca que flota sobre el fondo crema */
 }
 
 
@@ -1008,8 +1007,8 @@ table,
     position: relative;
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 120px); 
-    min-height: 500px; 
+    height: calc(100vh - 120px);
+    min-height: 500px;
     border-radius: 0.5rem;
 }
 

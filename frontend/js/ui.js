@@ -4,6 +4,7 @@ import { renderCuotaTable } from "./cuota.js";
 import { esAdministrador } from "./login.js";
 import { inicializarCuota } from "./cuota.js";
 import { renderTarifasTable } from "./tarifas.js";
+import { renderUsuariosTable } from "./usuarios.js";
 
 async function mostrar(divId) {
 
@@ -49,6 +50,8 @@ async function mostrar(divId) {
         deseleccionarFilas(divAMostrar.id);
     }else if (divId === 'divTarifas'){
         renderTarifasTable();
+    }else if (divId === 'divUsuarios'){
+        renderUsuariosTable();
     }else{
         const divsConTablas = ['divPaciente', 'divNombreDiagnostico'];
         if (divsConTablas.includes(divId)) {
@@ -61,6 +64,7 @@ async function mostrar(divId) {
 async function verificarAutorizacion(divId){
     switch(divId){
         case 'divTarifas':
+        case 'divUsuarios':
         case 'divCuotas':
             return await esAdministrador();
 

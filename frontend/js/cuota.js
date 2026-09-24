@@ -1,7 +1,7 @@
 import { API_BASE_URL } from './config.js';
 import { getAuthToken, mostrarLogin } from './login.js';
 import { mostrarMensaje, mostrarConfirmacion, deseleccionarFilas } from './ui.js';
-import { debounce, showLoadingIndicator, hideLoadingIndicator  } from './utils.js';
+import { debounce, showLoadingIndicator, hideLoadingIndicator, renderPaginacion  } from './utils.js';
 import { abrirSelectorPaciente, cerrarSelectorPaciente } from './selectorPaciente.js';
 
 const modalRegistrarCuota = document.getElementById('modalRegistrarCuota');
@@ -141,6 +141,45 @@ function getFilterParams(){
     return params.toString();
 }
 
+// Acciones por fila (Modificar / Eliminar): seleccionan la cuota y disparan los botones ocultos.
+function ejecutarAccionCuota(row, btnId) {
+    const tbody = row.parentElement;
+    const prev = tbody.querySelector('.table-selected');
+    if (prev) prev.classList.remove('table-selected');
+    row.classList.add('table-selected');
+    const btn = document.getElementById(btnId);
+    if (btn) { btn.disabled = false; btn.click(); }
+}
+
+function crearBotonesAccionesCuota(row, estado) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'd-inline-flex gap-2';
+    wrapper.addEventListener('click', (e) => e.stopPropagation());
+
+    // Una cuota cancelada no tiene acciones.
+    if (estado === 'Cancelada') {
+        const span = document.createElement('span');
+        span.className = 'text-muted';
+        span.textContent = '---';
+        wrapper.appendChild(span);
+        return wrapper;
+    }
+
+    const acciones = [
+        { texto: 'Modificar', clase: 'btn-warning', btnId: 'btnRegistrarPagoCuota' },
+        { texto: 'Eliminar', clase: 'btn-danger', btnId: 'btnDarDeBajaCuota' },
+    ];
+    acciones.forEach(({ texto, clase, btnId }) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `btn btn-sm ${clase}`;
+        btn.textContent = texto;
+        btn.addEventListener('click', () => ejecutarAccionCuota(row, btnId));
+        wrapper.appendChild(btn);
+    });
+    return wrapper;
+}
+
 async function renderCuotaTable(){
     const tablaCuotasBody = document.getElementById('tbodyCuotas');
     const btnRegistrarPagoCuota = document.getElementById('btnRegistrarPagoCuota');
@@ -165,7 +204,7 @@ async function renderCuotaTable(){
     if (cuotas.length === 0) {
             const row = tablaCuotasBody.insertRow();
             const cell = row.insertCell(0);
-            cell.colSpan = 8; 
+            cell.colSpan = 7;
             cell.textContent = 'No hay cuotas registradas.';
             cell.classList.add('text-center', 'text-muted');
             contador.textContent = 0;
@@ -180,6 +219,7 @@ async function renderCuotaTable(){
             row.dataset.idPaciente = cuota.idPaciente;
             row.dataset.mes = cuota.mes;
             row.dataset.anio = cuota.anio;
+            row.dataset.estado = cuota.estado;
 
             //CAMBIAR CLASES
             switch(cuota.estado){
@@ -235,13 +275,17 @@ async function renderCuotaTable(){
 
             const estadoCell = row.insertCell();
             estadoCell.textContent = cuota.estado;
+
+            const accionesCell = row.insertCell();
+            accionesCell.className = 'text-end text-nowrap';
+            accionesCell.appendChild(crearBotonesAccionesCuota(row, cuota.estado));
         });
 
         renderPaginationControls(totalPages);
 
     }catch (error) {
         console.error('Error al renderizar la tabla de cuotas:', error);
-        tablaCuotasBody.innerHTML = `<tr><td colspan="5" class="text-danger text-center">Error al cargar las cuotas: ${error.message}</td></tr>`;
+        tablaCuotasBody.innerHTML = `<tr><td colspan="7" class="text-danger text-center">Error al cargar las cuotas: ${error.message}</td></tr>`;
     }finally {
         hideLoadingIndicator(tableLoadingOverlay);
     }
@@ -249,28 +293,12 @@ async function renderCuotaTable(){
 
 function renderPaginationControls(totalPages){
     const paginationControls = document.getElementById('paginationControlsCuotas');
-        paginationControls.innerHTML = '';
-    
-        if (totalPages <= 1) {
-            return;
-        }
-    
-        for (let i = 1; i <= totalPages; i++) {
-            const pageLi = document.createElement('li');
-            pageLi.classList.add('page-item');
-            if (i === currentPage) pageLi.classList.add('active');
-            const pageLink = document.createElement('a');
-            pageLink.classList.add('page-link');
-            pageLink.href = '#';
-            pageLink.textContent = i;
-            pageLink.addEventListener('click', (e) => {
-                e.preventDefault();
-                currentPage = i;
-                renderCuotaTable();
-            });
-            pageLi.appendChild(pageLink);
-            paginationControls.appendChild(pageLi);
-        }
+    if (!paginationControls) return;
+
+    renderPaginacion(paginationControls, currentPage, totalPages, (page) => {
+        currentPage = page;
+        renderCuotaTable();
+    });
 }
 
 
@@ -303,7 +331,7 @@ function inicializarTablaCuotas(){
 
                 if (clickedRow.classList.contains('table-selected')) {
                     selectedCuotaId = clickedRow.dataset.id;
-                    const estadoCuota = clickedRow.querySelector('td:last-child').textContent;
+                    const estadoCuota = clickedRow.dataset.estado;
                     if (estadoCuota === 'Pendiente' || estadoCuota === 'Atrasada' || estadoCuota === 'Pagada') {
                         document.getElementById('btnRegistrarPagoCuota').disabled = false;
                         document.getElementById('btnDarDeBajaCuota').disabled = false;

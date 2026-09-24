@@ -10,6 +10,8 @@ import { mostrar } from './ui.js';
 import { inicializarCalendario } from './calendario.js';
 import { inicializarCuota } from './cuota.js';
 import { inicializarTarifas } from './tarifas.js';
+import { inicializarUsuarios } from './usuarios.js';
+import { inicializarPerfil } from './perfil.js';
 import { initSelectorPaciente } from './selectorPaciente.js';
 
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -89,6 +91,8 @@ function inicializarAplicacionPrincipal(){
 
     inicializarCuota();
     inicializarTarifas();
+    inicializarUsuarios();
+    inicializarPerfil();
 
     populateAllDiagnosticosSelects();
     populateAllFisiosSelects();

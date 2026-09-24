@@ -199,6 +199,7 @@ export {
     ocultarLoginError,
     getAuthToken,
     guardarAuthToken,
+    removeAuthToken,
     handleLoginSubmit,
     inicializarLogin,
     esAdministrador,

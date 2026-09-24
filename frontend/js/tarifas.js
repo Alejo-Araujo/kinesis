@@ -107,7 +107,7 @@ async function renderTarifasTable() {
 
             const btnEditar = document.createElement('button');
             btnEditar.className = 'btn btn-warning btn-sm me-2';
-            btnEditar.textContent = 'Editar monto';
+            btnEditar.textContent = 'Modificar';
             btnEditar.addEventListener('click', () => abrirModalEditar(t));
             tdAcciones.appendChild(btnEditar);
 

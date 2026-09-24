@@ -31,6 +31,7 @@ const fisiosRoutes = require('./routes/fisiosRoutes.js');
 const calendarioRoutes = require('./routes/calendarioRoutes.js');
 const cuotasRoutes = require('./routes/cuotasRoutes.js')
 const tarifasRoutes = require('./routes/tarifasRoutes.js')
+const usuariosRoutes = require('./routes/usuariosRoutes.js')
 
 const  crearLogger  = require('../plugins/logger.plugin.js');
 const logger = crearLogger('server.js');
@@ -119,6 +120,9 @@ app.use('/api/cuotas', cuotasRoutes);
 
 //PARA TARIFAS (ABM de tarifagrupo)
 app.use('/api/tarifas', tarifasRoutes);
+
+//PARA USUARIOS (ABM de usuarios: roles fisio/admin)
+app.use('/api/usuarios', usuariosRoutes);
 
 //PARA IMAGENES
 app.use('/api/public', uploadRoutes);

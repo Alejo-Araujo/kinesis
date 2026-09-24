@@ -23,6 +23,11 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/public/favicon-16x16.png">
     <link rel="manifest" href="/public/site.webmanifest">
 
+    <!-- Fuente Inter (Google Fonts) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
     <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.1/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-+0n0xVW2eSR5OomGNYDnhzAbDsOXxcvSN1TPprVMTNDbiYZCxYbOOl7+AMvyTG2x" crossorigin="anonymous">
 
@@ -152,9 +157,6 @@
           <li id="liFichaMedica" class="nav-item" hidden>
           <a class="nav-link" href="#" data-target="divFichaMedica">Historia Clínica</a>
         </li>
-        <li class="nav-item">
-          <a class="nav-link" href="#" data-target="divNombreDiagnostico">Diagnosticos</a>
-        </li>
         <li class="nav-item dropdown" id="liFacturacion" hidden>
           <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
             Facturación
@@ -165,6 +167,29 @@
             <!-- <li><a class="dropdown-item" href="#" data-target="divFacturacionSesiones">Por sesiones</a></li> -->
           </ul>
         </li>
+
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            Otros
+          </a>
+          <ul class="dropdown-menu">
+            <li><a class="dropdown-item" href="#" data-target="divNombreDiagnostico">Diagnósticos</a></li>
+            <li id="liAdministrarUsuarios" hidden><a class="dropdown-item" href="#" data-target="divUsuarios">Administrar usuarios</a></li>
+          </ul>
+        </li>
+      </ul>
+
+      <ul class="navbar-nav ms-auto mb-2 mb-lg-0">
+        <li class="nav-item dropdown">
+          <a class="nav-link dropdown-toggle d-flex align-items-center gap-2" href="#" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+            <i class="bi bi-person-circle fs-4"></i>
+            <span id="perfilNombre">Usuario</span>
+          </a>
+          <ul class="dropdown-menu dropdown-menu-end">
+            <li><a class="dropdown-item" href="#" id="btnCambiarPassword">Cambiar contraseña</a></li>
+            <li><a class="dropdown-item" href="#" id="btnCerrarSesion">Cerrar sesión</a></li>
+          </ul>
+        </li>
       </ul>
     </div>
   </div>
@@ -173,7 +198,7 @@
 
 <!-- DIV AGENDA -->
 <div id="divAgenda" class="container agenda-table d-none">
-    <h2 class="mb-4">Agenda Semanal</h2>
+    <h2 class="mb-3">Agenda Semanal</h2>
     <div class="table-responsive">
         <div id="tableLoadingOverlayAgenda" class="loading-overlay" style="display: none;">
             <img src="/public/apple-touch-icon.png" alt="Cargando..." class="loading-image"> 
@@ -189,7 +214,6 @@
           <th>Jueves</th>
           <th>Viernes</th>
           <th>Sábado</th>
-          <th>Domingo</th>
         </tr>
       </thead>
         <tbody>
@@ -197,7 +221,7 @@
     </table>
     </div>
     <div class="mt-3">
-        <button id="btnAgregarHorario" class="btn btn-info me-2" data-bs-toggle="modal" data-bs-target="#addHorarioModal">Agregar Horario</button>
+        <button id="btnAgregarHorario" class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#addHorarioModal">Agregar</button>
         <button id="btnFijarseHorario" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#fijarseHorarioModal">Fijarse Horarios de paciente</button>
     </div>
 </div> 
@@ -306,7 +330,7 @@
 
 <!-- AGENDA PERSONAL -->
 <div class="container mt-4 d-none" id="divAgendaPersonal">
-    <h2>Agenda Personal / Calendario</h2>
+    <h2 class="mb-3">Agenda Personal</h2>
 
     <div id="calendar" class="card p-3 shadow-sm"> 
         <div class="calendar-header d-flex justify-content-between align-items-center mb-3">
@@ -371,7 +395,7 @@
                             </div>
                         </div>
                         
-                        <div class="mt-3 d-flex gap-2 justify-content-end"> <button id="btnAgregarSesion" class="btn btn-info" data-bs-toggle="modal" data-bs-target="#sessionDetailModal" >Agregar Sesión</button>
+                        <div class="mt-3 d-flex gap-2 justify-content-end"> <button id="btnAgregarSesion" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#sessionDetailModal" >Agregar</button>
                             <button id="btnModificarSesion" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#sessionDetailModal" disabled>Modificar Sesión</button>
                             <button id="btnEliminarSesion" class="btn btn-danger" disabled>Eliminar Sesión</button>
                         </div>
@@ -522,7 +546,7 @@
                         <p id="noParticipantsMessage" class="text-muted d-none">No hay pacientes en este grupo.</p>
                         
                         <div class="mt-3 d-flex gap-2">
-                            <button id="btnAgregarPacienteHorario" class="btn btn-info btn-sm">Agregar Paciente</button>
+                            <button id="btnAgregarPacienteHorario" class="btn btn-success btn-sm">Agregar</button>
                             <button id="btnEliminarPacienteHorario" class="btn btn-danger btn-sm" disabled>Eliminar Paciente</button>
                         </div>
                     </div>
@@ -533,8 +557,8 @@
                         <p id="noFisioterapeutasMessage" class="text-muted d-none">No hay fisioterapeutas asignados a este grupo.</p>
 
                         <div class="mt-3 d-flex gap-2">
-                            <button id="btnAgregarFisioterapeutaHorario" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#modalAgregarFisios">Agregar Fisioterapeuta</button>
-                            <button id="btnEliminarFisioterapeutaHorario" class="btn btn-secondary btn-sm" disabled>Eliminar Fisioterapeuta</button>
+                            <button id="btnAgregarFisioterapeutaHorario" class="btn btn-success btn-sm" data-bs-toggle="modal" data-bs-target="#modalAgregarFisios">Agregar</button>
+                            <button id="btnEliminarFisioterapeutaHorario" class="btn btn-danger btn-sm" disabled>Eliminar Fisioterapeuta</button>
                         </div>
                     </div>
                 </div>
@@ -590,7 +614,7 @@
                         <thead class="table-light">
                             <tr>
                                 <th scope="col">#</th>
-                                <th scope="col">Nombre y Apellido</th>
+                                <th scope="col">Nombre</th>
                                 <th scope="col">Cédula</th>
                                 <th scope="col">Diagnósticos</th>
                                 <th scope="col">Teléfono</th>
@@ -644,6 +668,7 @@
 
 <!-- DIV PACIENTES -->
 <div id="divPaciente" class="container d-none">
+    <h2 class="mb-3">Pacientes</h2>
     <div id="filtrosPacienteContainer">
         <div class="row mb-3 align-items-end">
             <div class="col-md-4">
@@ -665,11 +690,6 @@
             <label for="selectActive" class="form-label">Mostrar:</label>
             <select id="selectActive" class="form-select"></select>
         </div>
-        <div class="col-md-8 text-end">
-            <button id = "btnAgregarPaciente" data-bs-toggle="modal" 
-            data-bs-target="#modalAgregarPaciente" class="btn btn-primary mt-4"
-            data-mode="add">Agregar Nuevo Paciente</button>
-        </div>
     </div>
     </div>
 
@@ -682,13 +702,13 @@
         <table class="table table-sm table-hover" id="tablaPacientes">
             <thead>
                 <tr>
-                    <th scope="col">#</th>
-                    <th scope="col">Nombre y Apellido</th>
+                    <th scope="col">Nombre</th>
                     <th scope="col">Cédula</th>
                     <th scope="col">Diagnósticos</th>
                     <th scope="col">Telefono</th>
                     <th scope="col">Gmail</th>
                     <th scope="col">Activo</th>
+                    <th scope="col"></th>
                     </tr>
             </thead>
             <tbody>
@@ -705,8 +725,13 @@
 </div>
 
     <div class="mt-3">
+        <button id="btnAgregarPaciente" data-bs-toggle="modal" data-bs-target="#modalAgregarPaciente" class="btn btn-success" data-mode="add">Agregar</button>
+    </div>
+
+    <!-- Acciones por fila: el menú de cada fila selecciona el paciente y dispara estos botones (ocultos). -->
+    <div class="mt-3 d-none">
         <button id="btnVerFicha" class="btn btn-info me-2" disabled>Ver Historia Clínica</button>
-        <button id="btnModificarDatosPersonales" class="btn btn-warning me-2" data-bs-toggle="modal" 
+        <button id="btnModificarDatosPersonales" class="btn btn-warning me-2" data-bs-toggle="modal"
             data-bs-target="#modalAgregarPaciente" data-mode="edit" disabled>Modificar Datos Personales</button>
         <button id="btnEliminarPaciente" class="btn btn-danger me-2" disabled>Eliminar Paciente</button>
     </div>
@@ -723,7 +748,7 @@
             <div class="modal-body">
                 <form id="formAgregarPaciente">
                     <div class="mb-3">
-                        <label for="inputAgregarNombreApellido" class="form-label">Nombre y Apellido*</label>
+                        <label for="inputAgregarNombreApellido" class="form-label">Nombre</label>
                         <input type="text" class="form-control" id="inputAgregarNombreApellido">
                     </div>
                     <div class="mb-3">
@@ -771,7 +796,7 @@
 
 <!-- DIV FICHA MEDICA -->
 <div class="container d-none" id="divFichaMedica">
-    <h2 class="mb-4">Historia Clínica</h2>
+    <h2 class="mb-3">Historia Clínica</h2>
     <div id="tableLoadingOverlayFichaMedica" class="loading-overlay" style="display: none;">
             <img src="/public/apple-touch-icon.png" alt="Cargando..." class="loading-image"> 
         <p class="mt-2 text-primary">Cargando Historia Clínica...</p>
@@ -796,7 +821,7 @@
     <div class="card">
         <div class="card-header text-white d-flex justify-content-between align-items-center" style="background-color: #194e30;">
             Diagnósticos y Observaciones
-            <button class="btn btn-info diagnostico-btn" id="btnAgregarDiagnosticoPaciente" title="Agregar nuevo diagnóstico" data-bs-toggle="modal" data-bs-target="#modalAgregarDiagnosticoPaciente">Agregar diagnostico</button>
+            <button class="btn btn-info diagnostico-btn" id="btnAgregarDiagnosticoPaciente" title="Agregar nuevo diagnóstico" data-bs-toggle="modal" data-bs-target="#modalAgregarDiagnosticoPaciente">Agregar</button>
         </div>
         <div class="card-body">
             <div id="diagnosticosContainer">    
@@ -854,37 +879,33 @@
 
 <!-- DIV NOMBRE DIAGNOSTICOS -->
 <div id="divNombreDiagnostico" class="container d-none mt-4">
+    <h2 class="mb-3">Diagnósticos</h2>
     <div id="filtrosDiagnosticoContainer"></div>
     <div id="divTablaNombresDiagnosticos"class="table-scroll shadow-sm rounded border">
         <div id="tableLoadingOverlayDiagnostico" class="loading-overlay" style="display: none;">
             <img src="/public/apple-touch-icon.png" alt="Cargando..." class="loading-image"> 
             <p class="mt-2 text-primary">Cargando diagnósticos...</p>
         </div>
-            <table class="table table-striped table-hover caption-top" id="tablaNombresDiagnosticos">
-                    <thead class="table-light">
-                        <tr>
-                            <!-- <th scope="col">#</th> -->
-                            <th scope="col">Nombre de los diagnósticos</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tbodyNombresDiagnosticos">
-                        <tr>
-                            <td colspan="3" class="text-center text-muted">Cargando diagnósticos...</td>
-                        </tr>
-                    </tbody>
+            <table class="table table-sm table-hover mb-0" id="tablaNombresDiagnosticos">
+                <thead>
+                    <tr>
+                        <th scope="col">Nombre</th>
+                        <th scope="col"></th>
+                    </tr>
+                </thead>
+                <tbody id="tbodyNombresDiagnosticos">
+                </tbody>
             </table>
         </div>
         <div class="mt-3">
-            <button type="submit" class="btn btn-success me-2" data-bs-toggle="modal" 
-            data-bs-target="#modalAgregarDiagnostico" data-mode="add"> Agregar Nuevo Diagnóstico </button>
-            <button id="btnEliminarNombreDiagnostico" class="btn btn-danger" disabled> Eliminar Diagnóstico Seleccionado </button>
-            <button id="btnModificarNombreDiagnostico" class="btn btn-warning me-2" data-bs-toggle="modal" 
-            data-bs-target="#modalAgregarDiagnostico" data-mode="edit" disabled>Modificar nombre del diagnostico</button>
+            <button type="submit" class="btn btn-success" data-bs-toggle="modal"
+            data-bs-target="#modalAgregarDiagnostico" data-mode="add">Agregar</button>
         </div>
 </div>
 
 <!-- DIV CUOTAS -->
 <div id="divCuotas" class="container d-none mt-4">
+    <h2 class="mb-3">Cuotas Mensuales</h2>
     <div id="filtrosCuotasContainer">
         <div class="row mb-3 align-items-end">
             <div class="col-md-4">
@@ -925,11 +946,6 @@
                 <label for="anioCuotasFiltro" class="form-label">Año:</label>
                 <select class="form-select" id="anioCuotasFiltro"></select>
             </div>
-            <div class="col-md-4 text-end">
-                <button id="btnRegistrarNuevaCuota" class="btn btn-success mt-4" data-bs-toggle="modal" data-bs-target="#modalRegistrarCuota">
-                    Agregar cuota manualmente
-                </button> 
-            </div>
         </div>
     </div>
 
@@ -949,6 +965,7 @@
                     <th scope="col">Fecha de Pago</th>
                     <!-- <th scope="col">Fecha de Baja</th> -->
                     <th scope="col">Estado</th>
+                    <th scope="col"></th>
                 </tr>
             </thead>
             <tbody id="tbodyCuotas">
@@ -965,9 +982,14 @@
         </div>
 
     <div class="mt-3 d-flex">
+        <button id="btnRegistrarNuevaCuota" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalRegistrarCuota">Agregar</button>
+        <button id="btnGenerarBalanceCuota" class="btn btn-info ms-auto" data-bs-toggle="modal" data-bs-target="#modalGenerarBalance">Generar Balance</button>
+    </div>
+
+    <!-- Acciones por fila: los botones de cada fila seleccionan la cuota y disparan estos (ocultos). -->
+    <div class="d-none">
         <button id="btnRegistrarPagoCuota" class="btn btn-success me-2" data-bs-toggle="modal" data-bs-target="#modalRegistrarPagoCuota" disabled>Pagar/Modificar Cuota</button>
         <button id="btnDarDeBajaCuota" class="btn btn-danger me-2" disabled>Eliminar</button>
-        <button id="btnGenerarBalanceCuota" class="btn btn-info ms-auto" data-bs-toggle="modal" data-bs-target="#modalGenerarBalance">Generar Balance</button>
     </div>
 </div>
 
@@ -1289,14 +1311,14 @@
             <p class="mt-2 text-primary">Cargando tarifas...</p>
         </div>
         <table class="table table-sm table-hover mb-0" id="tablaTarifas">
-            <thead class="table-light">
+            <thead>
                 <tr>
                     <th scope="col">Días por semana</th>
                     <th scope="col">Monto</th>
                     <th scope="col">Vigente desde</th>
                     <th scope="col">Vigente hasta</th>
                     <th scope="col">Estado</th>
-                    <th scope="col" class="text-end">Acciones</th>
+                    <th scope="col"></th>
                 </tr>
             </thead>
             <tbody id="tbodyTarifas">
@@ -1309,7 +1331,7 @@
 
     <div class="mt-3">
         <button id="btnAgregarTarifa" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalTarifa">
-            Agregar tarifa
+            Agregar
         </button>
     </div>
 </div>
@@ -1365,6 +1387,127 @@
             </div>
             <div class="modal-footer">
                 <button type="submit" class="btn btn-primary" form="formTarifa" id="btnGuardarTarifa">Guardar Tarifa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+<!-- DIV USUARIOS (ABM de usuarios) -->
+<div id="divUsuarios" class="container d-none mt-4">
+    <h2 class="mb-3">Administrar Usuarios</h2>
+    <p class="text-muted">
+        Solamente los administradores pueden gestionar usuarios y ver la facturación.
+        La contraseña inicial de un usuario nuevo es <strong>!</strong> seguido de su cédula.
+    </p>
+
+    <div id="divTablaUsuarios" class="table-scroll shadow-sm rounded border mt-2">
+        <div id="tableLoadingOverlayUsuarios" class="loading-overlay" style="display: none;">
+            <img src="/public/apple-touch-icon.png" alt="Cargando..." class="loading-image">
+            <p class="mt-2 text-primary">Cargando usuarios...</p>
+        </div>
+        <table class="table table-sm table-hover mb-0" id="tablaUsuarios">
+            <thead>
+                <tr>
+                    <th scope="col">Nombre</th>
+                    <th scope="col">Cédula</th>
+                    <th scope="col">Fisioterapeuta</th>
+                    <th scope="col">Administrador</th>
+                    <th scope="col"></th>
+                </tr>
+            </thead>
+            <tbody id="tbodyUsuarios"></tbody>
+        </table>
+    </div>
+    <div class="d-flex align-items-center p-2 text-muted bg-light border-top">
+        Total de usuarios: <strong id="contadorUsuarios" class="ms-1">0</strong>
+    </div>
+
+    <div class="mt-3">
+        <button id="btnAgregarUsuario" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalUsuario">
+            Agregar
+        </button>
+    </div>
+</div>
+
+<!-- MODAL AGREGAR / EDITAR USUARIO -->
+<div class="modal fade" id="modalUsuario" tabindex="-1" aria-labelledby="modalUsuarioLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalUsuarioLabel">Agregar Usuario</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formUsuario">
+                    <div class="mb-3">
+                        <label for="inputNombreUsuario" class="form-label">Nombre</label>
+                        <input type="text" class="form-control" id="inputNombreUsuario" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputCedulaUsuario" class="form-label">Cédula*</label>
+                        <input type="text" class="form-control" id="inputCedulaUsuario" placeholder="Ej: 12345678" minlength="7" maxlength="8" required>
+                        <div class="form-text">7 u 8 dígitos, sin puntos ni guiones.</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputEmailUsuario" class="form-label">Email</label>
+                        <input type="email" class="form-control" id="inputEmailUsuario">
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputTelefonoUsuario" class="form-label">Teléfono</label>
+                        <input type="text" class="form-control" id="inputTelefonoUsuario" placeholder="+59899123456">
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputFechaNacUsuario" class="form-label">Fecha de nacimiento</label>
+                        <input type="date" class="form-control" id="inputFechaNacUsuario">
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="checkEsFisio">
+                        <label class="form-check-label" for="checkEsFisio">Es fisioterapeuta</label>
+                    </div>
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" id="checkEsAdmin">
+                        <label class="form-check-label" for="checkEsAdmin">Es administrador</label>
+                    </div>
+                    <div id="notaPasswordUsuario" class="form-text mt-3">
+                        La contraseña inicial será: <strong>!</strong> seguido de la cédula.
+                    </div>
+                    <input type="hidden" id="inputIdUsuario">
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary" form="formUsuario" id="btnGuardarUsuario">Guardar Usuario</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CAMBIAR CONTRASEÑA (para todos los usuarios) -->
+<div class="modal fade" id="modalCambiarPassword" tabindex="-1" aria-labelledby="modalCambiarPasswordLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="modalCambiarPasswordLabel">Cambiar Contraseña</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="formCambiarPassword">
+                    <div class="mb-3">
+                        <label for="inputPasswordActual" class="form-label">Contraseña actual</label>
+                        <input type="password" class="form-control" id="inputPasswordActual" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputPasswordNueva" class="form-label">Nueva contraseña</label>
+                        <input type="password" class="form-control" id="inputPasswordNueva" minlength="4" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="inputPasswordNueva2" class="form-label">Repetir nueva contraseña</label>
+                        <input type="password" class="form-control" id="inputPasswordNueva2" minlength="4" required>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="submit" class="btn btn-primary" form="formCambiarPassword" id="btnGuardarPassword">Guardar</button>
             </div>
         </div>
     </div>

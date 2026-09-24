@@ -40,8 +40,8 @@ async function getAllHorariosCompletos(req, res){
              GROUP_CONCAT(DISTINCT CONCAT(f.id, ':', u.nomyap) SEPARATOR '||') AS fisios_raw
              FROM grupo g
              LEFT JOIN grupofisioterapeuta gf ON g.diaSemana = gf.diaSemana AND g.horaInicio = gf.horaInicio AND g.horaFin = gf.horaFin AND gf.fechaBaja IS NULL
-             LEFT JOIN fisioterapeuta f ON f.id = gf.idFisio
-             LEFT JOIN usuario u ON u.id = f.idUsuario
+             LEFT JOIN fisioterapeuta f ON f.id = gf.idFisio AND f.fechaBaja IS NULL
+             LEFT JOIN usuario u ON u.id = f.idUsuario AND u.fechaBaja IS NULL
              LEFT JOIN grupopaciente gp ON g.diaSemana = gp.diaSemana AND g.horaInicio = gp.horaInicio AND g.horaFin = gp.horaFin AND gp.fechaBaja IS NULL
              LEFT JOIN paciente p ON p.id = gp.idPaciente
              WHERE g.fechaBaja IS NULL
@@ -100,8 +100,8 @@ async function getHorarioByCompositeKey(req, res) {
              GROUP_CONCAT(DISTINCT CONCAT(f.id, ':', u.nomyap) SEPARATOR '||') AS fisios_raw
              FROM grupo g
              LEFT JOIN grupofisioterapeuta gf ON g.diaSemana = gf.diaSemana AND g.horaInicio = gf.horaInicio AND g.horaFin = gf.horaFin AND gf.fechaBaja IS NULL
-             LEFT JOIN fisioterapeuta f ON f.id = gf.idFisio
-             LEFT JOIN usuario u ON u.id = f.idUsuario
+             LEFT JOIN fisioterapeuta f ON f.id = gf.idFisio AND f.fechaBaja IS NULL
+             LEFT JOIN usuario u ON u.id = f.idUsuario AND u.fechaBaja IS NULL
              LEFT JOIN grupopaciente gp ON g.diaSemana = gp.diaSemana AND g.horaInicio = gp.horaInicio AND g.horaFin = gp.horaFin AND gp.fechaBaja IS NULL
              LEFT JOIN paciente p ON p.id = gp.idPaciente
              WHERE g.diaSemana = ? AND g.horaInicio = ? AND g.horaFin = ?
@@ -736,6 +736,18 @@ async function eliminarPacienteGrupo(req, res) {
     }
 }
 
+// Un fisio está disponible sólo si ni él (fisioterapeuta) ni su usuario están dados de baja.
+async function fisioActivo(idFisio) {
+    const [rows] = await db.execute(
+        `SELECT 1 FROM fisioterapeuta f
+         JOIN usuario u ON u.id = f.idUsuario
+         WHERE f.id = ? AND f.fechaBaja IS NULL AND u.fechaBaja IS NULL
+         LIMIT 1`,
+        [idFisio]
+    );
+    return rows.length > 0;
+}
+
 async function agregarFisioGrupo(req, res){
 let { diaSemana, horaInicio, horaFin, idFisio } = req.body;
 
@@ -761,7 +773,12 @@ let { diaSemana, horaInicio, horaFin, idFisio } = req.body;
         return res.status(400).json({ message: 'El formato de la hora de fin es inválido.' });
     }
 
-
+    // No permitir asignar un fisio inexistente o dado de baja (defensa aunque el
+    // dropdown ya no los muestre).
+    if (!(await fisioActivo(idFisio))) {
+        logger.warn(`Intento de agregar un fisioterapeuta inexistente o dado de baja: ${idFisio}`);
+        return res.status(400).json({ message: 'El fisioterapeuta no está disponible (inexistente o dado de baja).' });
+    }
 
     try {
         const [result] = await db.execute(

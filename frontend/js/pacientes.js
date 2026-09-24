@@ -1,7 +1,7 @@
 import { API_BASE_URL } from './config.js';
 import { getAuthToken, mostrarLogin } from './login.js';
 import { mostrarMensaje, mostrarConfirmacion } from './ui.js';
-import { debounce, showLoadingIndicator, hideLoadingIndicator, separarNumeroConRegex  } from './utils.js';
+import { debounce, showLoadingIndicator, hideLoadingIndicator, separarNumeroConRegex, renderPaginacion  } from './utils.js';
 import { fetchPacienteById } from './fichaMedica.js';
 
 const countryCodes = [
@@ -105,9 +105,11 @@ function inicializarPatientTable(
 ) {
     setActionButtonsState(false,actionButtonIds);
 
-    // Controla la seleccion de filas
+    // Controla la seleccion de filas.
+    // La tabla PRINCIPAL de pacientes no es seleccionable (usa botones de acción por fila);
+    // sólo el selector de pacientes permite elegir una fila con el click.
     const tablaPacientesBody = document.querySelector(`#${tablaPacientesParam} tbody`);
-    if (tablaPacientesBody) {
+    if (tablaPacientesBody && tablaPacientesParam !== 'tablaPacientes') {
         let selectedPacienteId = null;
         tablaPacientesBody.addEventListener('click', (event) => {
             let clickedRow = event.target.closest('tr');
@@ -259,6 +261,45 @@ async function fetchPacientes(
     }
 }
 
+// Menú desplegable de acciones por fila (tabla principal de pacientes).
+// Selecciona la fila y dispara los botones (ocultos) existentes, reutilizando su lógica.
+function ejecutarAccionPaciente(row, btnId) {
+    const tbody = row.parentElement;
+    // Marcador interno (sin estilo visual): la fila no se "selecciona", sólo se indica
+    // sobre qué paciente actúa el botón (lo leen los flujos de modal/baja/ficha).
+    const prev = tbody.querySelector('.js-paciente-activo');
+    if (prev) prev.classList.remove('js-paciente-activo');
+    row.classList.add('js-paciente-activo');
+
+    const btn = document.getElementById(btnId);
+    if (btn) {
+        btn.disabled = false;
+        btn.click();
+    }
+}
+
+function crearBotonesAccionesPaciente(row) {
+    const wrapper = document.createElement('div');
+    wrapper.className = 'd-inline-flex gap-2';
+    // Evita que el click en los botones dispare la selección de fila de la tabla.
+    wrapper.addEventListener('click', (e) => e.stopPropagation());
+
+    const acciones = [
+        { texto: 'Historia Clínica', clase: 'btn-info', btnId: 'btnVerFicha' },
+        { texto: 'Modificar', clase: 'btn-warning', btnId: 'btnModificarDatosPersonales' },
+        { texto: 'Eliminar', clase: 'btn-danger', btnId: 'btnEliminarPaciente' },
+    ];
+    acciones.forEach(({ texto, clase, btnId }) => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = `btn btn-sm ${clase}`;
+        btn.textContent = texto;
+        btn.addEventListener('click', () => ejecutarAccionPaciente(row, btnId));
+        wrapper.appendChild(btn);
+    });
+    return wrapper;
+}
+
 async function renderPacientesTable(
     tablaPacientesParam,
     contadorPacientesParam,
@@ -290,35 +331,49 @@ async function renderPacientesTable(
         const pacientes = data.pacientes;
         const totalPages = data.totalPages;
 
+        const esTablaPrincipal = tablaPacientesParam === 'tablaPacientes';
+
         if (pacientes.length === 0) {
             const row = tablaPacientesBody.insertRow();
             const cell = row.insertCell(0);
-            cell.colSpan = 5; 
+            cell.colSpan = 7;
             cell.textContent = 'No hay pacientes registrados.';
             cell.classList.add('text-center', 'text-muted');
             contador.textContent = 0;
             return;
         }
         contador.textContent = pacientes.length;
-        
+
         pacientes.forEach(paciente => {
             const row = tablaPacientesBody.insertRow();
             row.id = `paciente-${paciente.idPaciente}`;
             row.dataset.pacienteId = paciente.id;
 
             if (paciente.activo === 0) {
-                row.classList.add('table-inactive'); 
-            } 
+                row.classList.add('table-inactive');
+            }
              else {
-                row.classList.add('table-active'); 
+                row.classList.add('table-active');
              }
-            row.insertCell(0).textContent = paciente.id; 
-            row.insertCell(1).textContent = paciente.nomyap;
-            row.insertCell(2).textContent = paciente.cedula || '---';
-            row.insertCell(3).textContent = paciente.diagnosticos || '---';
-            row.insertCell(4).textContent = paciente.telefono || '---';
-            row.insertCell(5).textContent = paciente.gmail || '---';
-            row.insertCell(6).textContent = paciente.activo ? 'Si' : 'No';
+
+            // Selector de paciente (modal): mantiene la columna de ID original al inicio.
+            if (!esTablaPrincipal) {
+                row.insertCell().textContent = paciente.id;
+            }
+
+            row.insertCell().textContent = paciente.nomyap;
+            row.insertCell().textContent = paciente.cedula || '---';
+            row.insertCell().textContent = paciente.diagnosticos || '---';
+            row.insertCell().textContent = paciente.telefono || '---';
+            row.insertCell().textContent = paciente.gmail || '---';
+            row.insertCell().textContent = paciente.activo ? 'Si' : 'No';
+
+            // Tabla principal: columna de acciones (botones inline) a la derecha, sin columna de ID.
+            if (esTablaPrincipal) {
+                const celdaAcciones = row.insertCell();
+                celdaAcciones.className = 'text-end text-nowrap';
+                celdaAcciones.appendChild(crearBotonesAccionesPaciente(row));
+            }
 
         });
         
@@ -337,7 +392,7 @@ async function renderPacientesTable(
 
     } catch (error) {
         console.error('Error al renderizar la tabla de pacientes:', error);
-        tablaPacientesBody.innerHTML = `<tr><td colspan="5" class="text-danger text-center">Error al cargar los pacientes: ${error.message}</td></tr>`;
+        tablaPacientesBody.innerHTML = `<tr><td colspan="7" class="text-danger text-center">Error al cargar los pacientes: ${error.message}</td></tr>`;
     } finally {
         hideLoadingIndicator(tableLoadingOverlay);
     }
@@ -356,37 +411,22 @@ function renderPaginationControls(
     totalPages
 ) {
     const paginationControls = document.getElementById(`${paginationControlsParam}`);
-    paginationControls.innerHTML = '';
-    if (totalPages <= 1) {
-        return;
-    }
+    if (!paginationControls) return;
 
-    for (let i = 1; i <= totalPages; i++) {
-        const pageLi = document.createElement('li');
-        pageLi.classList.add('page-item');
-        if (i === currentPage) pageLi.classList.add('active');
-        const pageLink = document.createElement('a');
-        pageLink.classList.add('page-link');
-        pageLink.href = '#';
-        pageLink.textContent = i;
-        pageLink.addEventListener('click', (e) => {
-            e.preventDefault();
-            currentPage = i;
-            renderPacientesTable(
-                tablaPacientesParam, 
-                contadorPacientesParam, 
-                paginationControlsParam,
-                selectDiagnosticoBuscarParam,
-                inputBuscarNombreParam,
-                inputBuscarCedulaParam,
-                selectActiveParam,
-                actionButtonIds,
-                tableLoadingOverlay                
-            );
-        });
-        pageLi.appendChild(pageLink);
-        paginationControls.appendChild(pageLi);
-    }
+    renderPaginacion(paginationControls, currentPage, totalPages, (page) => {
+        currentPage = page;
+        renderPacientesTable(
+            tablaPacientesParam,
+            contadorPacientesParam,
+            paginationControlsParam,
+            selectDiagnosticoBuscarParam,
+            inputBuscarNombreParam,
+            inputBuscarCedulaParam,
+            selectActiveParam,
+            actionButtonIds,
+            tableLoadingOverlay
+        );
+    });
 }
 
 //EN CALENDARIO LO HICE DISTINTO AL TEMA DEL ADD Y EL EDIT PERO AMBOS ESTAN BIEN
@@ -434,11 +474,11 @@ function inicializarAgregarModificarPaciente() {
         formAgregarPaciente.classList.remove('was-validated');         
         modalElement.dataset.currentMode = 'edit';
 
-        const selectedPacienteRow = document.querySelector('#tablaPacientes tbody tr.table-selected');
+        const selectedPacienteRow = document.querySelector('#tablaPacientes tbody tr.js-paciente-activo');
         if (selectedPacienteRow) {
-                const pacienteId = selectedPacienteRow.dataset.pacienteId; 
+                const pacienteId = selectedPacienteRow.dataset.pacienteId;
                 if (pacienteId) {
-                    
+
                     const pacienteData = await fetchPacienteById(pacienteId);
                     if (pacienteData) {
                         inputAgregarNombreApellido.value = pacienteData.nomyap;
@@ -581,7 +621,7 @@ function inicializarAgregarModificarPaciente() {
             realizarAlta(false, token, pacienteData);
 
             } else {
-                const selectedPacienteRow = document.querySelector('#tablaPacientes tbody tr.table-selected');
+                const selectedPacienteRow = document.querySelector('#tablaPacientes tbody tr.js-paciente-activo');
                 if (selectedPacienteRow){
                 const id = selectedPacienteRow.dataset.pacienteId;
                 try {
@@ -650,7 +690,7 @@ btnEliminarPaciente.addEventListener('click', async (event) =>{
                 mostrarLogin();
                 return;
             }
-        const selectedPacienteRow = document.querySelector('#tablaPacientes tbody tr.table-selected');
+        const selectedPacienteRow = document.querySelector('#tablaPacientes tbody tr.js-paciente-activo');
         if(!selectedPacienteRow){
             mostrarMensaje('Seleccione un paciente a eliminar', 'info');
             return;

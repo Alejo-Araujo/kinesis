@@ -122,7 +122,7 @@ async function inicializarFichaMedica() {
 
             await controlarCambiosEnObservaciones();
 
-            const selectedPacienteRow = document.querySelector('#tablaPacientes tbody tr.table-selected');
+            const selectedPacienteRow = document.querySelector('#tablaPacientes tbody tr.js-paciente-activo');
             if (selectedPacienteRow) {
                 const pacienteId = selectedPacienteRow.dataset.pacienteId; 
                 if (pacienteId) {

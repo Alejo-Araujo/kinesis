@@ -52,6 +52,29 @@ npm run dev      # nodemon (recarga en caliente); o `npm start` para node plano
 - **usuario** / **fisioterapeuta** / **administrador**: usuarios del sistema; un
   fisio/admin referencia `idUsuario`. Fisios activos: id 1 (ALEJO ARAUJO) y 2 (PABLO MEDINA).
   El usuario id 1 es administrador.
+  - **Baja de fisio**: un fisio está de baja si `fisioterapeuta.fechaBaja` **o** `usuario.fechaBaja`
+    NOT NULL. `getAllFisios` (fuente de todos los `select[id^="selectFisios"]`: sesión, estadísticas,
+    agregar a grupo) filtra ambas, así que un fisio de baja **no aparece** para asignar. La agenda
+    tampoco lo lista en los grupos (`agendaController` filtra `f.fechaBaja`/`u.fechaBaja` en el JOIN).
+    Al asignar un fisio (a grupo o a sesión) el backend valida `fisioActivo(idFisio)` (defensa aunque
+    el dropdown ya no lo muestre). El **histórico de sesiones sí muestra** el nombre del fisio de baja
+    (calendarioController usa JOIN sin filtro de baja, a propósito). No hay ABM de fisios: la baja se
+    hace por SQL (setear `fechaBaja`); conviene además dar de baja sus `grupofisioterapeuta` activos.
+  - **ABM de usuarios** (solo admin): `/api/usuarios` (`usuariosController.js`/`usuariosRoutes.js`),
+    `GET` (lista con `esFisio`/`esAdmin`/`activo`), `POST` (alta: contraseña inicial automática
+    **`"!" + cedula`** hasheada; roles vía flags `esFisio`/`esAdmin`), `PUT /:id` (datos + toggle de
+    roles; activar rol = `INSERT ... ON DUPLICATE KEY UPDATE fechaBaja=NULL` por el `UNIQUE(idUsuario)`),
+    `DELETE /:id` (baja). La baja de un fisio con `grupofisioterapeuta` vigentes responde **409
+    `{enGrupos, cantidad}`** salvo `?force=1`, que da de baja en cascada (grupos + fisio + admin +
+    usuario) en transacción. Salvaguardas anti-lockout: no auto-baja, no quitarse el propio admin, no
+    dejar el sistema sin admins. Frontend: vista `#divUsuarios` (`usuarios.js`) desde el menú **Otros**.
+  - **Auth extra**: `GET /api/auth/me` → `{idUsuario, nomyap, cedula, esFisio, esAdmin}` (alimenta el
+    menú de perfil arriba a la derecha: `perfil.js`). `PUT /api/auth/password` → cambio de contraseña
+    self-service para cualquier usuario logueado (verifica la actual con `bcrypt.compare`).
+  - **Menú de perfil** (navbar, `perfil.js`): icono `bi-person-circle` + nombre; opciones "Cambiar
+    contraseña" y "Cerrar sesión" para todos. "Administrar usuarios" (`#liAdministrarUsuarios`) vive en
+    el dropdown **"Otros"** de la navbar y `perfil.js` lo muestra solo a admins (se decide con
+    `/api/auth/me`).
 - **grupo**: horario recurrente. **PK compuesta** `(diaSemana, horaInicio, horaFin)`.
   `diaSemana` válido: Lunes..Sabado (sin Domingo). Baja lógica con `fechaBaja`.
 - **grupopaciente** / **grupofisioterapeuta**: inscripción de paciente/fisio a un grupo.

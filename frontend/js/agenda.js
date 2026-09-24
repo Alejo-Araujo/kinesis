@@ -117,7 +117,7 @@ async function renderAgendaTable() {
         });
 
         const horasUnicas = Array.from(new Set(horariosRaw.map(h => `${h.horaInicio}-${h.horaFin}`))).sort();
-        const diasSemana = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado', 'Domingo'];
+        const diasSemana = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
 
         const formatTimeForDisplay = (timeString) => timeString.substring(0, 5);
 

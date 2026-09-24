@@ -15,4 +15,7 @@ router.post('/login', authController.login);
 
 router.get('/isAdministrador', authenticateToken, authController.isAdministrador);
 
+router.get('/me', authenticateToken, authController.me);
+router.put('/password', authenticateToken, authController.cambiarPassword);
+
 module.exports = router;

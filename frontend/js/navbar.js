@@ -36,9 +36,9 @@ function inicializarNavbar(cambioDeVista) {
     navbar.classList.remove('d-none');
     const navLinks = document.querySelectorAll('.navbar-nav a[data-target]'); 
     
-    navLinks.forEach(link => { 
-        link.addEventListener('click', async (event) => { 
-            event.preventDefault(); 
+    navLinks.forEach(link => {
+        link.addEventListener('click', async (event) => {
+            event.preventDefault();
 
             const divId = link.dataset.target;
             const resultado = await mostrar(divId);
@@ -52,6 +52,21 @@ function inicializarNavbar(cambioDeVista) {
             }
         });
     });
+
+    // Click en el logo (arriba a la izquierda) -> vuelve a la Agenda Semanal.
+    const brand = document.querySelector('.navbar-brand');
+    if (brand) {
+        brand.addEventListener('click', async (event) => {
+            event.preventDefault();
+            const resultado = await mostrar('divAgenda');
+            if (resultado === false) return;
+            navItemActive('divAgenda');
+            adjustBodyPadding();
+            if (cambioDeVista && typeof cambioDeVista === 'function') {
+                cambioDeVista('divAgenda');
+            }
+        });
+    }
 }
 
 export { inicializarNavbar, adjustBodyPadding, navItemActive };

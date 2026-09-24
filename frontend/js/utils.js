@@ -161,13 +161,76 @@ function separarNumeroConRegex(numeroCompleto) {
 }
 
 
-export { 
-    populateSelect,  
-    populateAllDiagnosticosSelects, 
-    debounce, 
-    showLoadingIndicator, 
+// Construye los controles de paginación (flechas « ‹ › » + números) dentro del <ul> dado.
+// - ul: elemento <ul.pagination> contenedor.
+// - currentPage / totalPages: estado actual.
+// - onGoTo(page): callback al navegar a una página válida distinta de la actual.
+// Muestra sólo una ventana de números (primera, última y la actual ±1) con elipsis
+// para que no se desborde cuando hay muchas páginas.
+function renderPaginacion(ul, currentPage, totalPages, onGoTo) {
+    if (!ul) return;
+    ul.innerHTML = '';
+    if (totalPages <= 1) return;
+
+    const agregarItem = (etiqueta, page, { disabled = false, active = false, aria } = {}) => {
+        const li = document.createElement('li');
+        li.className = 'page-item';
+        if (disabled) li.classList.add('disabled');
+        if (active) li.classList.add('active');
+
+        const a = document.createElement('a');
+        a.className = 'page-link';
+        a.href = '#';
+        a.textContent = etiqueta;
+        if (aria) a.setAttribute('aria-label', aria);
+        a.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (disabled || active || page < 1 || page > totalPages || page === currentPage) return;
+            onGoTo(page);
+        });
+
+        li.appendChild(a);
+        ul.appendChild(li);
+    };
+
+    const agregarElipsis = () => {
+        const li = document.createElement('li');
+        li.className = 'page-item disabled';
+        const span = document.createElement('span');
+        span.className = 'page-link';
+        span.textContent = '…';
+        li.appendChild(span);
+        ul.appendChild(li);
+    };
+
+    // « primera y ‹ anterior
+    agregarItem('«', 1, { disabled: currentPage === 1, aria: 'Primera página' });
+    agregarItem('‹', currentPage - 1, { disabled: currentPage === 1, aria: 'Página anterior' });
+
+    // Ventana de números: primera, última y la actual ±1, con elipsis entre saltos.
+    const numeros = [...new Set([1, totalPages, currentPage - 1, currentPage, currentPage + 1])]
+        .filter(p => p >= 1 && p <= totalPages)
+        .sort((a, b) => a - b);
+    let anterior = 0;
+    for (const p of numeros) {
+        if (p - anterior > 1) agregarElipsis();
+        agregarItem(String(p), p, { active: p === currentPage });
+        anterior = p;
+    }
+
+    // › siguiente y » última
+    agregarItem('›', currentPage + 1, { disabled: currentPage === totalPages, aria: 'Página siguiente' });
+    agregarItem('»', totalPages, { disabled: currentPage === totalPages, aria: 'Última página' });
+}
+
+export {
+    populateSelect,
+    populateAllDiagnosticosSelects,
+    debounce,
+    showLoadingIndicator,
     hideLoadingIndicator,
     separarNumeroConRegex,
     populateAllFisiosSelects,
-    populateAllYearSelects
+    populateAllYearSelects,
+    renderPaginacion
  };

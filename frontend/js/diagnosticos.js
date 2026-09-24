@@ -5,21 +5,6 @@ import { mostrarConfirmacion, mostrarMensaje } from "./ui.js";
 import { renderFichaMedica, fetchPacienteById } from "./fichaMedica.js";
 
 
-function disableNombreDiagnosticoButtons(){
-    const btnModificarDiagnostico = document.getElementById('btnModificarNombreDiagnostico');
-    const btnEliminarDiagnostico = document.getElementById('btnEliminarNombreDiagnostico');
-    if (btnModificarDiagnostico) btnModificarDiagnostico.disabled = true;
-    if (btnEliminarDiagnostico) btnEliminarDiagnostico.disabled = true;
-}
-
-function enableNombreDiagnosticoButtons(){
-    const btnModificarDiagnostico = document.getElementById('btnModificarNombreDiagnostico');
-    const btnEliminarDiagnostico = document.getElementById('btnEliminarNombreDiagnostico');
-    if (btnModificarDiagnostico) btnModificarDiagnostico.disabled = false;
-    if (btnEliminarDiagnostico) btnEliminarDiagnostico.disabled = false;
-} 
-
-    
 async function fetchDiagnosticos() {
     try {
         const response = await fetch(`${API_BASE_URL}/api/diagnosticos`,{
@@ -46,59 +31,95 @@ async function fetchDiagnosticos() {
 };
 
 function inicializarNombreDiagnostico(){
-    const tablaNombreDiagnosticosBody = document.querySelector('#tablaNombresDiagnosticos tbody');
-    if (tablaNombreDiagnosticosBody) {
-        tablaNombreDiagnosticosBody.addEventListener('click', (event) => {
-            let clickedRow = event.target.closest('tr');
-            if (clickedRow) {
-                const currentSelected = tablaNombreDiagnosticosBody.querySelector('.table-selected');
-                if (currentSelected && currentSelected !== clickedRow) {
-                    currentSelected.classList.remove('table-selected');
-                }
-                clickedRow.classList.toggle('table-selected');
-
-                if (clickedRow.classList.contains('table-selected')) {
-                    enableNombreDiagnosticoButtons();
-                } else {
-                    disableNombreDiagnosticoButtons();
-                }
-            }
-        });
-    }
     renderNombresDiagnosticosTable();
 };
+
+// Marca una fila como seleccionada (la usa el botón "Editar" antes de abrir el modal,
+// cuyo guardado lee la fila con .table-selected).
+function seleccionarFilaDiagnostico(row){
+    const tbody = row.parentElement;
+    const prev = tbody.querySelector('.table-selected');
+    if (prev) prev.classList.remove('table-selected');
+    row.classList.add('table-selected');
+}
+
+async function eliminarDiagnosticoPorId(id, nombre){
+    const confirmacion = await mostrarConfirmacion(
+        `¿Está seguro que desea eliminar el diagnóstico "${nombre}"?`,
+        'Eliminar Diagnóstico', 'Eliminar', 'Cancelar', 'btn-danger'
+    );
+    if (!confirmacion) return;
+
+    const token = getAuthToken();
+    if (!token) { mostrarLogin(); return; }
+
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/diagnosticos/eliminarNombreDiagnostico/${id}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }
+        });
+        if (!response.ok) {
+            if (response.status === 401 || response.status === 403) { mostrarLogin(); return; }
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || `Error al eliminar diagnostico: ${response.statusText}`);
+        }
+        mostrarMensaje('Diagnostico eliminado exitosamente.', 'success');
+        renderNombresDiagnosticosTable();
+        populateAllDiagnosticosSelects();
+    } catch (error) {
+        console.error('Error al eliminar nombre diagnostico:', error);
+        mostrarMensaje(error.message || 'Error al eliminar diagnostico.', 'danger');
+    }
+}
 
 async function renderNombresDiagnosticosTable (){
     const tablaNombreDiagnosticosBody = document.querySelector('#tablaNombresDiagnosticos tbody');
     const tableLoadingOverlayDiagnostico = 'tableLoadingOverlayDiagnostico';
         if (!tablaNombreDiagnosticosBody) return;
 
-        disableNombreDiagnosticoButtons();
         tablaNombreDiagnosticosBody.innerHTML = '';
         showLoadingIndicator(tableLoadingOverlayDiagnostico);
-    
+
         try {
             const nombresDiagnosticos = await fetchDiagnosticos();
             if (nombresDiagnosticos.length === 0) {
                 const row = tablaNombreDiagnosticosBody.insertRow();
                 const cell = row.insertCell(0);
-                cell.colSpan = 5; 
+                cell.colSpan = 2;
                 cell.textContent = 'No hay diagnosticos registrados.';
-                cell.classList.add('text-center', 'text-muted');
+                cell.classList.add('text-center', 'text-muted', 'p-3');
                 return;
             }
-    
+
             nombresDiagnosticos.forEach(nombreDiagnostico => {
                 const row = tablaNombreDiagnosticosBody.insertRow();
                 row.dataset.id = nombreDiagnostico.id;
-    
-                // row.insertCell(0).textContent = nombreDiagnostico.id; 
-                row.insertCell(0).textContent = nombreDiagnostico.nombre;
-    
+
+                const celdaNombre = row.insertCell();
+                celdaNombre.textContent = nombreDiagnostico.nombre;
+
+                const celdaAcciones = row.insertCell();
+                celdaAcciones.className = 'text-end';
+
+                // Editar: reutiliza el modal existente (selecciona la fila y lo abre en modo edit).
+                const btnEditar = document.createElement('button');
+                btnEditar.className = 'btn btn-warning btn-sm me-2';
+                btnEditar.textContent = 'Modificar';
+                btnEditar.setAttribute('data-bs-toggle', 'modal');
+                btnEditar.setAttribute('data-bs-target', '#modalAgregarDiagnostico');
+                btnEditar.dataset.mode = 'edit';
+                btnEditar.addEventListener('click', () => seleccionarFilaDiagnostico(row));
+
+                const btnEliminar = document.createElement('button');
+                btnEliminar.className = 'btn btn-danger btn-sm';
+                btnEliminar.textContent = 'Eliminar';
+                btnEliminar.addEventListener('click', () => eliminarDiagnosticoPorId(nombreDiagnostico.id, nombreDiagnostico.nombre));
+
+                celdaAcciones.append(btnEditar, btnEliminar);
             });
         } catch (error) {
             console.error('Error al renderizar la tabla de diagnosticos:', error);
-            tablaNombreDiagnosticosBody.innerHTML = `<tr><td colspan="5" class="text-danger text-center">Error al cargar los diagnosticos: ${error.message}</td></tr>`;
+            tablaNombreDiagnosticosBody.innerHTML = `<tr><td colspan="2" class="text-danger text-center">Error al cargar los diagnosticos: ${error.message}</td></tr>`;
         } finally {
             hideLoadingIndicator(tableLoadingOverlayDiagnostico);
         }

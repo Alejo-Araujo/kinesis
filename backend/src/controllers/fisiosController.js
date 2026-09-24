@@ -8,6 +8,7 @@ async function getAllFisios(req,res){
         (`SELECT f.id, u.nomyap
         FROM fisioterapeuta f
         JOIN usuario u ON u.id = f.idUsuario
+        WHERE f.fechaBaja IS NULL AND u.fechaBaja IS NULL
         ORDER BY u.nomyap ASC`,[]);
 
         res.status(200).json(rows);

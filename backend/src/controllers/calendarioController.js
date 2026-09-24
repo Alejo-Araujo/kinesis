@@ -3,6 +3,18 @@ const db = require('../db');
 const  crearLogger  = require('../../plugins/logger.plugin.js');
 const logger = crearLogger('pacientesController.js');
 
+// Un fisio está disponible sólo si ni él (fisioterapeuta) ni su usuario están dados de baja.
+async function fisioActivo(idFisio) {
+    const [rows] = await db.execute(
+        `SELECT 1 FROM fisioterapeuta f
+         JOIN usuario u ON u.id = f.idUsuario
+         WHERE f.id = ? AND f.fechaBaja IS NULL AND u.fechaBaja IS NULL
+         LIMIT 1`,
+        [idFisio]
+    );
+    return rows.length > 0;
+}
+
 function isValidMes(mes) {
     return typeof mes === 'number' && mes >= 0 && mes <= 11;
 }
@@ -167,8 +179,12 @@ let { fecha, horaInicio, horaFin, idFisio, idPaciente } = req.body;
     }
 
     try {
+        if (!(await fisioActivo(idFisioNum))) {
+            logger.warn(`Intento de crear sesión con un fisio inexistente o dado de baja: ${idFisio}`);
+            return res.status(400).json({ message: 'El fisioterapeuta no está disponible (inexistente o dado de baja).' });
+        }
         const [result] = await db.execute(
-            `INSERT INTO sesion 
+            `INSERT INTO sesion
             (fecha, horaInicio, horaFin, idFisio, idPaciente)
             VALUES (?, ?, ?, ?, ?)`,
             [fecha, horaInicio, horaFin, idFisioNum, idPacienteNum]
@@ -267,6 +283,10 @@ if (!fecha || !horaInicio || !horaFin || !idFisio || !idPaciente) {
 
 
     try {
+        if (!(await fisioActivo(idFisioNum))) {
+            logger.warn(`Intento de modificar sesión con un fisio inexistente o dado de baja: ${idFisio}`);
+            return res.status(400).json({ message: 'El fisioterapeuta no está disponible (inexistente o dado de baja).' });
+        }
         const [result] = await db.execute(
             `UPDATE sesion SET
              horaInicio = ?, horaFin = ?, idFisio = ?, idPaciente = ?
