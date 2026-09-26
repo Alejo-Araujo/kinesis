@@ -126,8 +126,15 @@ async function cambiarPassword(req, res) {
     if (!passwordActual || !passwordNueva) {
         return res.status(400).json({ message: 'La contraseña actual y la nueva son requeridas.' });
     }
-    if (String(passwordNueva).length < 4) {
-        return res.status(400).json({ message: 'La contraseña nueva debe tener al menos 4 caracteres.' });
+    const pass = String(passwordNueva);
+    if (pass.length <= 5) {
+        return res.status(400).json({ message: 'La contraseña nueva debe tener más de 5 caracteres.' });
+    }
+    if (!/[a-zA-Z]/.test(pass)) {
+        return res.status(400).json({ message: 'La contraseña nueva debe contener al menos una letra.' });
+    }
+    if (!/[0-9]/.test(pass)) {
+        return res.status(400).json({ message: 'La contraseña nueva debe contener al menos un número.' });
     }
 
     try {

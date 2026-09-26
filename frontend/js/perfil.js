@@ -44,8 +44,16 @@ async function cambiarPassword(event) {
         mostrarMensaje('Las contraseñas nuevas no coinciden.', 'warning');
         return;
     }
-    if (nueva.length < 4) {
-        mostrarMensaje('La contraseña nueva debe tener al menos 4 caracteres.', 'warning');
+    if (nueva.length <= 5) {
+        mostrarMensaje('La contraseña nueva debe tener más de 5 caracteres.', 'warning');
+        return;
+    }
+    if (!/[a-zA-Z]/.test(nueva)) {
+        mostrarMensaje('La contraseña nueva debe contener al menos una letra.', 'warning');
+        return;
+    }
+    if (!/[0-9]/.test(nueva)) {
+        mostrarMensaje('La contraseña nueva debe contener al menos un número.', 'warning');
         return;
     }
 
