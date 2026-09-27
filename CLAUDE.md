@@ -64,7 +64,12 @@ npm run dev      # nodemon (recarga en caliente); o `npm start` para node plano
     `GET` (lista con `esFisio`/`esAdmin`/`activo`), `POST` (alta: contraseña inicial automática
     **`"!" + cedula`** hasheada; roles vía flags `esFisio`/`esAdmin`), `PUT /:id` (datos + toggle de
     roles; activar rol = `INSERT ... ON DUPLICATE KEY UPDATE fechaBaja=NULL` por el `UNIQUE(idUsuario)`),
-    `DELETE /:id` (baja). La baja de un fisio con `grupofisioterapeuta` vigentes responde **409
+    `DELETE /:id` (baja). **Reactivación**: si el `POST` trae la cédula de un usuario **dado de
+    baja**, no se crea otro: se hace `UPDATE` de ese registro con `fechaBaja = NULL`, los datos del
+    formulario, la contraseña inicial `"!" + cedula` y los roles según `esFisio`/`esAdmin` (200,
+    `{ reactivado: true }`). Si la cédula es de un usuario activo → 409. **Rol obligatorio**: alta,
+    reactivación y modificación exigen al menos un rol (`esFisio` y/o `esAdmin`), si no → 400.
+    La baja de un fisio con `grupofisioterapeuta` vigentes responde **409
     `{enGrupos, cantidad}`** salvo `?force=1`, que da de baja en cascada (grupos + fisio + admin +
     usuario) en transacción. Salvaguardas anti-lockout: no auto-baja, no quitarse el propio admin, no
     dejar el sistema sin admins. Frontend: vista `#divUsuarios` (`usuarios.js`) desde el menú **Otros**.
@@ -89,11 +94,12 @@ npm run dev      # nodemon (recarga en caliente); o `npm start` para node plano
   tener dos sesiones solapadas el mismo día (409). Modificar una sesión no cambia su fecha.
 - **cuota**: **PK `(idPaciente, mes, anio)`**. `monto` (tarifa base), `montoDescuento`
   (monto realmente cobrado), `descuento` (%), `fechaPago`, `metodoPago`, `fechaBaja`.
-  - **Cuota del mes al cambiar grupos** (`backend/src/utils/cuotas.js` → `recalcularCuotaDelMes`,
-    usado por agenda y `restaurarGrupos`): si la cuota del mes está **pendiente** se ajusta
-    `monto`/`montoDescuento` a la tarifa de su cantidad de grupos; si está **pagada o cancelada no se
-    toca**; si **no existe** se genera sólo al inscribir/restaurar y **sólo antes del día 25**.
-    Sacar a un paciente de su último grupo **no cancela** la cuota del mes.
+  - **Cuota del mes y grupos** (`backend/src/utils/cuotas.js` → `generarCuotaDelMesSiCorresponde`,
+    usado al inscribir en un grupo y en `restaurarGrupos`): los grupos **sólo generan** la cuota
+    cuando el paciente **no tiene ninguna cuota de ese mes** (en ningún estado) y el día es **menor
+    a 25**; se crea con la tarifa vigente para su cantidad de grupos. **Una vez dada de alta, la
+    cuota del mes no se modifica por cambios de grupos** (agregar, sacar o restaurar no tocan monto,
+    pago ni estado; sacar del último grupo tampoco la cancela).
   - **Registrar pago**: 404 si la cuota no existe, 409 si está cancelada; `descuento` entero 0..100
     (0 es válido), `montoDescuento` entre 0 y `monto`, `fechaPago` fecha real, descripción admite
     tildes/ñ. Alta manual de cuota: mes 1..12, montos ≥ 0, paciente activo.
@@ -119,6 +125,11 @@ npm run dev      # nodemon (recarga en caliente); o `npm start` para node plano
   renderizar. Un paciente no puede tener dos veces el mismo diagnóstico (409).
 - **paciente**: `genero` ∈ {M, F, O}; `fechaCreacion` la pone el servidor. La **baja** se bloquea
   si está en algún grupo o tiene sesiones **de hoy en adelante** (las pasadas son historial).
+  **Reactivación**: si el alta trae la cédula de un paciente **dado de baja**, no se crea otro: se
+  hace `UPDATE` de ese registro con `fechaBaja = NULL` y los datos del formulario (conserva
+  `fechaCreacion`, historia clínica, cuotas y sesiones; queda `activo = 0` hasta inscribirlo en un
+  grupo). Responde 200 `{ reactivado: true }` y no pasa por la advertencia de nombres similares.
+  Cédula de un paciente activo → 409. Mismo criterio que la reactivación de usuarios.
 - **view_cuota_estado** (VIEW sobre `cuota`): agrega columna `estado`:
   `Cancelada` (fechaBaja), `Pagada` (fechaPago), `Pendiente` (mes actual y día < 25),
   `Atrasada` (mes pasado, o mes actual con día >= 25). El día 25 del mes es el corte.
@@ -195,10 +206,9 @@ frontend/
 
 ## Pendientes conocidos (decididos, todavía NO implementar)
 
-- **Usuario sin rol**: un usuario activo que no es fisio ni admin (hoy JUAN ANDRADA, id 4) puede
-  loguearse y usar todo lo clínico (pacientes, agenda, calendario). Falta decidir qué puede ver.
-- **Reactivar usuario**: un usuario dado de baja no se puede reactivar ni volver a dar de alta con
-  la misma cédula (409). Se agregará una funcionalidad de "reactivar usuario".
+- **Usuario sin rol (datos viejos)**: desde 2026-09-26 no se puede crear ni dejar un usuario sin
+  rol, pero los que ya existían así (hoy JUAN ANDRADA, id 4) siguen pudiendo loguearse y usar lo
+  clínico hasta que se les asigne un rol o se los dé de baja.
 - **Logs**: `crearLogger` (`plugins/logger.plugin.js`) acepta un solo argumento, así que en
   `logger.error('texto:', error.message)` la causa se pierde; además varios controllers usan un
   nombre de servicio equivocado. Usar template strings mientras tanto.
@@ -206,7 +216,10 @@ frontend/
   generación de cuotas y baja por deuda importa. Se maneja desde el hosting.
 - Por diseño (confirmado): borrar un nombre de diagnóstico borra los diagnósticos de pacientes dados
   de baja; corregir el monto de una tarifa reclasifica el balance histórico (cruza por monto); el
-  contador de pacientes muestra las filas de la página; el selector de pacientes filtra "Activos".
+  contador de pacientes muestra las filas de la página; el selector de pacientes filtra "Activos";
+  la tarifa se elige por cantidad de **grupos** (en producción nadie está en dos grupos el mismo
+  día); se permiten grupos superpuestos; una sola sesión por franja horaria no es un problema;
+  MariaDB queda sin `STRICT_TRANS_TABLES` (las validaciones están en el backend).
 
 ## Historial
 

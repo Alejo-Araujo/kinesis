@@ -2,7 +2,7 @@ const db = require('../db');
 
 const  crearLogger  = require('../../plugins/logger.plugin.js');
 const logger = crearLogger('agendaController.js');
-const { recalcularCuotaDelMes } = require('../utils/cuotas.js');
+const { generarCuotaDelMesSiCorresponde } = require('../utils/cuotas.js');
 
 // Síncrona a propósito: antes era async y devolvía una Promise (siempre "truthy"),
 // por lo que `!isValidDiaSemana(...)` nunca bloqueaba días inválidos.
@@ -593,8 +593,8 @@ function validarDatosGrupo(diaSemana, horaInicio, horaFin, idPaciente) {
     return { valido: true };
 }
 
-// La cuota del mes se calcula con recalcularCuotaDelMes (utils/cuotas.js): ya no reactiva
-// cuotas canceladas ni pisa pagos registrados.
+// Cuota del mes (utils/cuotas.js): los grupos sólo la GENERAN si el paciente no tiene cuota de
+// ese mes y es antes del día 25. Una cuota ya dada de alta no se modifica por cambios de grupos.
 
 async function agregarPacienteGrupo(req, res) {
     const { diaSemana, horaInicio, horaFin, idPaciente } = req.body;
@@ -649,9 +649,8 @@ async function agregarPacienteGrupo(req, res) {
 
         await db.execute(`UPDATE paciente SET activo = 1 WHERE id = ?`, [idPaciente]);
 
-        // Si ya tiene cuota del mes: pagada/cancelada no se toca; pendiente se ajusta a la
-        // nueva cantidad de grupos. Si no tiene, se genera sólo antes del día 25.
-        await recalcularCuotaDelMes(db, idPaciente, { generarSiFalta: true });
+        // Si no tiene cuota del mes y es antes del día 25 se genera; si ya tiene, no se toca.
+        await generarCuotaDelMesSiCorresponde(db, idPaciente);
 
         logger.log('Paciente agregado al grupo exitosamente');
         return res.status(inscripcionNueva ? 201 : 200).json({ message: 'Paciente agregado exitosamente.', pacienteId: idPaciente });
@@ -695,9 +694,7 @@ async function eliminarPacienteGrupo(req, res) {
               AND (SELECT COUNT(*) FROM grupopaciente gp WHERE gp.idPaciente = p.id AND gp.fechaBaja IS NULL) = 0
         `, [idPaciente]);
 
-        // La cuota del mes NO se cancela (aunque quede sin grupos): si está pendiente se ajusta
-        // a los grupos que le quedan; si ya está pagada o cancelada no se toca.
-        await recalcularCuotaDelMes(db, idPaciente);
+        // La cuota del mes no se toca al sacarlo de un grupo (ni se cancela ni cambia su monto).
 
         logger.log('Paciente eliminado del grupo exitosamente');
         return res.status(200).json({ message: 'Paciente eliminado exitosamente.', pacienteId: idPaciente });

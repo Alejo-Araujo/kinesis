@@ -218,35 +218,6 @@ async function createPaciente(req, res) {
     // y podía guardarse con el día siguiente; si faltaba, el INSERT fallaba con 500).
     fechaCreacion = hoyISO();
 
-    const isForceCreate = forceCreate === true || forceCreate === 'true';
-
-    if (!isForceCreate) {
-        try {
-            const [existingPatients] = await db.execute('SELECT id, nomyap FROM paciente WHERE fechaBaja IS NULL');
-            
-            const similarPatients = [];
-            const THRESHOLD = 2;
-
-            for (const p of existingPatients) {
-                const dist = levenshteinDistance(nomyap, p.nomyap);
-                if (dist <= THRESHOLD) {
-                    similarPatients.push(p.nomyap);
-                }
-            }
-
-            if (similarPatients.length > 0) {
-                return res.status(409).json({ 
-                    message: 'Se encontraron pacientes con nombres similares.',
-                    requiresConfirmation: true,
-                    similarPatients: similarPatients
-                });
-            }
-
-        } catch (error) {
-            logger.error('Error al verificar similitud de nombres:', error);
-        }
-    }
-
     //VALIDAR GMAIL
     if (!isValidGmail(gmail)) {
         logger.warn(`Intento de crear paciente con email inválido: ${gmail}`);
@@ -273,7 +244,7 @@ async function createPaciente(req, res) {
     }
      //En realidad no la estoy guardando con puntos ni guiones, pero la limpio por si acaso
 
-    if(!cedula){
+    if(!cedula || !cedula.trim()){
         cedula = null;
     }else{
         cedula = cedula.replace(/\./g, '').replace(/-/g, '');
@@ -288,6 +259,59 @@ async function createPaciente(req, res) {
         if (!isValidFechaNacimiento(fechaNacimiento)) {
             logger.warn(`Intento de crear paciente con fecha de nacimiento inválida: ${fechaNacimiento}`);
             return res.status(400).json({ message: 'La fecha de nacimiento es inválida o posterior a hoy.' });
+        }
+    }
+
+    // CEDULA YA REGISTRADA: si es de un paciente activo -> 409; si es de un paciente dado de
+    // baja, en vez de crear otro se REACTIVA ese mismo registro (fechaBaja = NULL) con los datos
+    // del formulario. Conserva su historia clínica, cuotas y sesiones; queda inactivo (activo = 0)
+    // hasta que se lo inscriba en un grupo, igual que un alta nueva.
+    if (cedula) {
+        const [existentes] = await db.execute('SELECT id, fechaBaja FROM paciente WHERE cedula = ?', [cedula]);
+        if (existentes.length > 0) {
+            if (existentes[0].fechaBaja === null) {
+                return res.status(409).json({ message: 'La cedula ingresada ya está registrada para otro paciente.' });
+            }
+
+            const idPaciente = existentes[0].id;
+            await db.execute(
+                `UPDATE paciente
+                 SET nomyap = ?, fechaNacimiento = ?, telefono = ?, gmail = ?, genero = ?, activo = 0, fechaBaja = NULL
+                 WHERE id = ?`,
+                [nomyap, fechaNacimiento, telefono, gmail, genero, idPaciente]
+            );
+            logger.log(`Paciente con ID: ${idPaciente} y cédula: ${cedula} reactivado.`);
+            return res.status(200).json({ message: 'Paciente reactivado exitosamente.', pacienteId: idPaciente, reactivado: true });
+        }
+    }
+
+    // NOMBRES SIMILARES (posible duplicado sin cédula o con otra cédula): pide confirmación.
+    const isForceCreate = forceCreate === true || forceCreate === 'true';
+
+    if (!isForceCreate) {
+        try {
+            const [existingPatients] = await db.execute('SELECT id, nomyap FROM paciente WHERE fechaBaja IS NULL');
+
+            const similarPatients = [];
+            const THRESHOLD = 2;
+
+            for (const p of existingPatients) {
+                const dist = levenshteinDistance(nomyap, p.nomyap);
+                if (dist <= THRESHOLD) {
+                    similarPatients.push(p.nomyap);
+                }
+            }
+
+            if (similarPatients.length > 0) {
+                return res.status(409).json({
+                    message: 'Se encontraron pacientes con nombres similares.',
+                    requiresConfirmation: true,
+                    similarPatients: similarPatients
+                });
+            }
+
+        } catch (error) {
+            logger.error('Error al verificar similitud de nombres:', error);
         }
     }
 

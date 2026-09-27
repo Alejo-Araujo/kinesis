@@ -36,6 +36,12 @@ function validarOpcionales({ gmail, telefono, fechaNacimiento }) {
     return { gmail: email, telefono: tel, fechaNacimiento: nacimiento };
 }
 
+// Todo usuario debe tener al menos un rol (fisioterapeuta, administrador o ambos).
+const MENSAJE_SIN_ROL = 'El usuario debe tener al menos un rol: fisioterapeuta y/o administrador.';
+function tieneRol(esFisio, esAdmin) {
+    return !!esFisio || !!esAdmin;
+}
+
 function esForce(req) {
     return req.query.force === '1' || req.query.force === 'true';
 }
@@ -146,6 +152,9 @@ async function crearUsuario(req, res) {
     if (!cedula || !isValidCedula(String(cedula))) {
         return res.status(400).json({ message: 'La cédula es requerida y debe tener 7 u 8 dígitos.' });
     }
+    if (!tieneRol(esFisio, esAdmin)) {
+        return res.status(400).json({ message: MENSAJE_SIN_ROL });
+    }
     const opcionales = validarOpcionales({ gmail, telefono, fechaNacimiento });
     if (opcionales.error) {
         return res.status(400).json({ message: opcionales.error });
@@ -154,8 +163,8 @@ async function crearUsuario(req, res) {
     const ced = String(cedula).trim();
     const conn = await db.getConnection();
     try {
-        const [dup] = await conn.execute('SELECT id FROM usuario WHERE cedula = ?', [ced]);
-        if (dup.length > 0) {
+        const [dup] = await conn.execute('SELECT id, fechaBaja FROM usuario WHERE cedula = ?', [ced]);
+        if (dup.length > 0 && dup[0].fechaBaja === null) {
             return res.status(409).json({ message: 'Ya existe un usuario con esa cédula.' });
         }
 
@@ -163,6 +172,28 @@ async function crearUsuario(req, res) {
         const passwordHash = await bcrypt.hash('!' + ced, 10);
 
         await conn.beginTransaction();
+
+        // La cédula pertenece a un usuario dado de baja: en vez de crear otro, se reactiva ese
+        // mismo registro (fechaBaja = NULL) con los datos del formulario y la contraseña inicial.
+        // Los roles quedan según lo pedido en el alta (reactivar un rol reutiliza su fila, así
+        // el fisio conserva su id y su historial de sesiones).
+        if (dup.length > 0) {
+            const idUsuario = dup[0].id;
+            await conn.execute(
+                `UPDATE usuario
+                 SET nomyap = ?, gmail = ?, telefono = ?, fechaNacimiento = ?, passwordUser = ?, fechaBaja = NULL
+                 WHERE id = ?`,
+                [nomyap.trim(), opcionales.gmail, opcionales.telefono, opcionales.fechaNacimiento, passwordHash, idUsuario]
+            );
+
+            if (esFisio) await activarFisio(conn, idUsuario); else await desactivarFisio(conn, idUsuario);
+            if (esAdmin) await activarAdmin(conn, idUsuario); else await desactivarAdmin(conn, idUsuario);
+
+            await conn.commit();
+            logger.log(`Usuario ${idUsuario} (cédula ${ced}) reactivado.`);
+            return res.status(200).json({ message: 'Usuario reactivado exitosamente.', id: idUsuario, reactivado: true });
+        }
+
         const [ins] = await conn.execute(
             `INSERT INTO usuario (nomyap, cedula, gmail, telefono, fechaNacimiento, passwordUser, fechaCreacion)
              VALUES (?, ?, ?, ?, ?, ?, CURDATE())`,
@@ -201,6 +232,9 @@ async function actualizarUsuario(req, res) {
     }
     if (!cedula || !isValidCedula(String(cedula))) {
         return res.status(400).json({ message: 'La cédula es requerida y debe tener 7 u 8 dígitos.' });
+    }
+    if (!tieneRol(esFisio, esAdmin)) {
+        return res.status(400).json({ message: MENSAJE_SIN_ROL });
     }
     const opcionales = validarOpcionales({ gmail, telefono, fechaNacimiento });
     if (opcionales.error) {

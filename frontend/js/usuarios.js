@@ -143,6 +143,7 @@ async function guardarUsuario(event) {
 
     if (!payload.nomyap) { mostrarMensaje('El nombre y apellido es requerido.', 'warning'); return; }
     if (!/^\d{7,8}$/.test(payload.cedula)) { mostrarMensaje('La cédula debe tener 7 u 8 dígitos.', 'warning'); return; }
+    if (!payload.esFisio && !payload.esAdmin) { mostrarMensaje('El usuario debe tener al menos un rol: fisioterapeuta y/o administrador.', 'warning'); return; }
 
     try {
         let response;

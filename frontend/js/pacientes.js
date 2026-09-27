@@ -595,7 +595,9 @@ function inicializarAgregarModificarPaciente() {
                         throw new Error(errorData.message || `Error al agregar paciente: ${response.statusText}`);
                     }
 
-                    mostrarMensaje('Paciente agregado exitosamente.', 'success');
+                    // Si la cédula era de un paciente dado de baja, el backend lo reactiva (reactivado: true).
+                    const resultado = await response.json().catch(() => ({}));
+                    mostrarMensaje(resultado.reactivado ? 'Paciente reactivado exitosamente.' : 'Paciente agregado exitosamente.', 'success');
 
                     modalAgregarPaciente.hide();
                     formAgregarPaciente.reset();

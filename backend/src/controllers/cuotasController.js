@@ -3,7 +3,7 @@ const db = require('../db');
 const crearLogger = require('../../plugins/logger.plugin.js');
 const logger = crearLogger('cuotasController.js');
 const { esTexto, esFechaISOValida } = require('../utils/validaciones.js');
-const { recalcularCuotaDelMes } = require('../utils/cuotas.js');
+const { generarCuotaDelMesSiCorresponde } = require('../utils/cuotas.js');
 
 const MAX_LIMIT = 500;
 
@@ -477,8 +477,9 @@ async function restaurarGrupos(req, res) {
                 [id]
             );
 
-            // Ajusta (o genera, antes del día 25) la cuota del mes según los grupos restaurados.
-            await recalcularCuotaDelMes(db, id, { generarSiFalta: true });
+            // Si no tiene cuota del mes y es antes del día 25, se genera con los grupos restaurados;
+            // si ya tiene cuota del mes, no se modifica.
+            await generarCuotaDelMesSiCorresponde(db, id);
 
             res.status(200).json({ message: 'Horarios restaurados correctamente.', restaurados: true });
         } else {
