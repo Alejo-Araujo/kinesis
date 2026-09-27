@@ -4,6 +4,10 @@ const multer = require('multer');
 const router = express.Router();
 const path = require('path');
 const { authenticateToken } = require('../middelwares/authMiddelware.js');
+const crearLogger = require('../../plugins/logger.plugin.js');
+const logger = crearLogger('uploadRoutes.js');
+
+const MENSAJE_TIPO_INVALIDO = 'Solo se permiten imágenes (jpeg, jpg, png)!';
 
 // Directorio donde se guardarán las imágenes
 const uploadImagesDir = path.join(__dirname, '..', 'public', 'upload', 'image');
@@ -37,7 +41,7 @@ const upload = multer({
         if (mimetype && extname) {
             return cb(null, true); // Acepta el archivo
         }
-        cb(new Error('Solo se permiten imágenes (jpeg, jpg, png)!')); // Rechaza el archivo con un error
+        cb(new Error(MENSAJE_TIPO_INVALIDO)); // Rechaza el archivo con un error
     }
 });
 
@@ -67,8 +71,11 @@ router.use((err, req, res, next) => {
         // Error específico de Multer
         logger.error('Multer Error:', err.message);
         return res.status(400).json({ message: err.message });
+    } else if (err && err.message === MENSAJE_TIPO_INVALIDO) {
+        // Archivo rechazado por el fileFilter: es un error del cliente, no del servidor.
+        return res.status(400).json({ message: err.message });
     } else if (err) {
-        // Otros errores durante la subida (ej. del fileFilter que no son MulterError)
+        // Otros errores durante la subida
         logger.error('Error desconocido durante la subida:', err.message);
         return res.status(500).json({ message: 'Error interno del servidor al subir la imagen.' });
     }

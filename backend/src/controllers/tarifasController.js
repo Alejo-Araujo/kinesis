@@ -8,12 +8,11 @@ const logger = crearLogger('tarifasController.js');
 // "Vigente" que se muestra coincide con la tarifa que realmente factura el sistema.
 const REF_VIGENCIA = "DATE_FORMAT(CURDATE(), '%Y-%m-01')";
 
+const { esFechaISOValida } = require('../utils/validaciones.js');
+
+// Fecha calendario real YYYY-MM-DD (new Date() aceptaba 2026-02-30 corriéndola a marzo).
 function isValidFecha(fecha) {
-    if (!fecha || typeof fecha !== 'string') return false;
-    const regex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!regex.test(fecha.trim())) return false;
-    const d = new Date(fecha + 'T00:00:00');
-    return !isNaN(d.getTime());
+    return esFechaISOValida(fecha);
 }
 
 // GET /api/tarifas  -> historial completo con estado calculado
@@ -76,6 +75,11 @@ async function crearTarifa(req, res) {
     if (!isValidFecha(fechaDesde)) {
         logger.warn('Alta de tarifa con fechaDesde inválida.');
         return res.status(400).json({ message: 'La fecha de inicio es inválida. Formato esperado: YYYY-MM-DD.' });
+    }
+    // Convención: la cuota toma la tarifa vigente el 1° del mes, así que las tarifas arrancan el 1°.
+    if (!fechaDesde.trim().endsWith('-01')) {
+        logger.warn(`Alta de tarifa con fechaDesde que no es 1° de mes: ${fechaDesde}`);
+        return res.status(400).json({ message: 'La tarifa debe comenzar el día 1 de un mes.' });
     }
 
     try {
@@ -167,6 +171,19 @@ async function eliminarTarifa(req, res) {
             await conn.rollback();
             return res.status(400).json({
                 message: 'Sólo se puede eliminar la tarifa más reciente (la vigente o la programada). Las históricas no se borran para no romper el balance.'
+            });
+        }
+
+        // Si es la única tarifa de esa cantidad de días, borrarla dejaría sin precio a los
+        // pacientes con esa cantidad de grupos (no se les podría generar la cuota).
+        const [[{ cantidad }]] = await conn.execute(
+            'SELECT COUNT(*) AS cantidad FROM tarifagrupo WHERE cantidadDias = ?',
+            [dias]
+        );
+        if (cantidad <= 1) {
+            await conn.rollback();
+            return res.status(409).json({
+                message: `No se puede eliminar la única tarifa de ${dias} día(s) por semana. Cargue una nueva tarifa o modifique su monto.`
             });
         }
 

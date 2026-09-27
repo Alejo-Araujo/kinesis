@@ -2,6 +2,11 @@ const db = require('../db');
 
 const  crearLogger  = require('../../plugins/logger.plugin.js');
 const logger = crearLogger('pacientesController.js');
+const { esTexto, esFechaISOValida, hoyISO, normalizarTelefono } = require('../utils/validaciones.js');
+
+// Tope de filas por página (evita que un limit enorme traiga toda la tabla de una vez).
+const MAX_LIMIT = 500;
+const GENEROS_VALIDOS = ['M', 'F', 'O'];
 
 function constructorWhereAndValues(filters) {
     let whereClause = 'WHERE 1=1';
@@ -34,11 +39,12 @@ async function getAllPacientes(req, res) {
         const { diagnosticoId, nombre, cedula, activo, page = 1, limit = 200 } = req.query;
     
         const pageNum = parseInt(page, 10);
-        const limitNum = parseInt(limit, 10);
-        
+        let limitNum = parseInt(limit, 10);
+
         if (isNaN(pageNum) || pageNum <= 0 || isNaN(limitNum) || limitNum <= 0) {
             return res.status(400).json({ message: 'Parámetros de paginación inválidos (page o limit).' });
         }
+        limitNum = Math.min(limitNum, MAX_LIMIT);
 
         const offset = (pageNum - 1) * limitNum;
 
@@ -101,22 +107,36 @@ async function getAllPacientes(req, res) {
     }
 }
 
+// Los validadores toleran cualquier tipo (un número u objeto en el body devuelve false
+// en lugar de lanzar una excepción).
 function isValidGmail(mail) {
-    if (!mail || mail.trim() === '') {
+    if (mail === undefined || mail === null || mail === '') {
         return true;
     }
+    if (!esTexto(mail)) {
+        return false;
+    }
     const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
-    return emailRegex.test(mail);
+    return mail.trim() === '' || emailRegex.test(mail.trim());
 }
 
 function isValidNomyap(nomyap) {
+    if (!esTexto(nomyap)) {
+        return false;
+    }
     nomyap = nomyap.trim().toUpperCase();
-    const nameRegex = /^[A-ZÁÉÍÓÚÜÑ\s'-]{2,}$/; 
+    const nameRegex = /^[A-ZÁÉÍÓÚÜÑ\s'-]{2,}$/;
     return nameRegex.test(nomyap);
 }
 
 function isValidCedula(cedula) {
-    if (!cedula || cedula.trim() === '') {
+    if (cedula === undefined || cedula === null || cedula === '') {
+        return true;
+    }
+    if (!esTexto(cedula)) {
+        return false;
+    }
+    if (cedula.trim() === '') {
         return true;
     }
 
@@ -124,20 +144,13 @@ function isValidCedula(cedula) {
     return /^\d{8}$/.test(cleanedCedula);
 }
 
-function isValidFechaNacimiento(fechaNacimiento, minEdad = 0) {
-    const birthDate = new Date(fechaNacimiento);
-    const today = new Date();
-    const age = today.getFullYear() - birthDate.getFullYear();
-    const monthDifference = today.getMonth() - birthDate.getMonth();
-    const dayDifference = today.getDate() - birthDate.getDate();
+// Fecha real (YYYY-MM-DD) y no posterior a hoy.
+function isValidFechaNacimiento(fechaNacimiento) {
+    return esFechaISOValida(fechaNacimiento) && fechaNacimiento.trim() <= hoyISO();
+}
 
-    if (isNaN(birthDate.getTime()) || birthDate > today) {
-        return false;
-    }
-    if (age < minEdad || (age === minEdad && (monthDifference < 0 || (monthDifference === 0 && dayDifference < 0)))) {
-        return false;
-    }
-    return true;
+function isValidGenero(genero) {
+    return GENEROS_VALIDOS.includes(genero);
 }
 
 //no entiendo nada pero funciona :)
@@ -192,8 +205,18 @@ async function createPaciente(req, res) {
         logger.warn(`Intento de crear paciente con nomyap inválido: ${nomyap}`);
         return res.status(400).json({ message: 'El nombre y apellido no tiene un formato válido (solo letras, espacios, guiones, apóstrofes y tildes, mínimo 2 caracteres).' });
     }
-    
+
     nomyap = nomyap.toUpperCase();
+
+    //VALIDAR GENERO
+    if (!isValidGenero(genero)) {
+        logger.warn(`Intento de crear paciente con género inválido: ${genero}`);
+        return res.status(400).json({ message: 'El género debe ser M, F u O.' });
+    }
+
+    // La fecha de alta la define el servidor (el valor que manda el cliente viene en UTC
+    // y podía guardarse con el día siguiente; si faltaba, el INSERT fallaba con 500).
+    fechaCreacion = hoyISO();
 
     const isForceCreate = forceCreate === true || forceCreate === 'true';
 
@@ -235,16 +258,14 @@ async function createPaciente(req, res) {
         gmail = gmail.toLowerCase();
     }
 
-     
-        const cleanedTelefono = telefono.replace(/[^+\d]/g, '');
-        if (!cleanedTelefono.startsWith('+') || cleanedTelefono.length < 8 || !/^\+\d+$/.test(cleanedTelefono)) {
-            logger.warn(`Intento de crear paciente con formato de teléfono inválido después de limpieza: ${telefono}`);
-            return res.status(400).json({ message: 'El formato del teléfono es inválido. Debe comenzar con "+" seguido del código de país y el número, solo con dígitos (Ej: +59899123456).' });
-        }
-        telefono = cleanedTelefono; 
-    
-    
-    
+    //VALIDAR TELEFONO
+    const cleanedTelefono = normalizarTelefono(telefono);
+    if (!cleanedTelefono) {
+        logger.warn(`Intento de crear paciente con formato de teléfono inválido después de limpieza: ${telefono}`);
+        return res.status(400).json({ message: 'El formato del teléfono es inválido. Debe comenzar con "+" seguido del código de país y el número, solo con dígitos (Ej: +59899123456).' });
+    }
+    telefono = cleanedTelefono;
+
     //VALIDAR CEDULA
     if (!isValidCedula(cedula)) {
         logger.warn(`Intento de crear paciente con cédula inválida: ${cedula}`);
@@ -264,10 +285,9 @@ async function createPaciente(req, res) {
     if(!fechaNacimiento){
         fechaNacimiento = null;
     }else{
-        const MIN_AGE = 0;
-        if (!isValidFechaNacimiento(fechaNacimiento, MIN_AGE)) {
-            logger.warn(`Intento de crear paciente con fecha de nacimiento inválida o menor de ${MIN_AGE} años: ${fechaNacimiento}`);
-            return res.status(400).json({ message: `La fecha de nacimiento es inválida o el paciente es menor de ${MIN_AGE} años.` });
+        if (!isValidFechaNacimiento(fechaNacimiento)) {
+            logger.warn(`Intento de crear paciente con fecha de nacimiento inválida: ${fechaNacimiento}`);
+            return res.status(400).json({ message: 'La fecha de nacimiento es inválida o posterior a hoy.' });
         }
     }
 
@@ -312,6 +332,12 @@ const pacienteId = req.params.id;
     
     nomyap = nomyap.toUpperCase();
 
+    //VALIDAR GENERO
+    if (!isValidGenero(genero)) {
+        logger.warn(`Intento de modificar paciente con género inválido: ${genero}`);
+        return res.status(400).json({ message: 'El género debe ser M, F u O.' });
+    }
+
     //VALIDAR GMAIL
     if (!isValidGmail(gmail)) {
         logger.warn(`Intento de modificar paciente con email inválido: ${gmail}`);
@@ -325,21 +351,20 @@ const pacienteId = req.params.id;
     }
 
     //VALIDAR TELEFONO
-    const cleanedTelefono = telefono.replace(/[^+\d]/g, '');
-    if (!cleanedTelefono.startsWith('+') || cleanedTelefono.length < 8 || !/^\+\d+$/.test(cleanedTelefono)) {
+    const cleanedTelefono = normalizarTelefono(telefono);
+    if (!cleanedTelefono) {
         logger.warn(`Intento de modificar paciente con formato de teléfono inválido después de limpieza: ${telefono}`);
         return res.status(400).json({ message: 'El formato del teléfono es inválido. Debe comenzar con "+" seguido del código de país y el número, solo con dígitos (Ej: +59899123456).' });
     }
-    telefono = cleanedTelefono; 
+    telefono = cleanedTelefono;
 
     //VALIDAR FECHA DE NACIMIENTO
     if(!fechaNacimiento){
         fechaNacimiento = null;
     }else{
-        const MIN_AGE = 0;
-        if (!isValidFechaNacimiento(fechaNacimiento, MIN_AGE)) {
-            logger.warn(`Intento de crear paciente con fecha de nacimiento inválida o menor de ${MIN_AGE} años: ${fechaNacimiento}`);
-            return res.status(400).json({ message: `La fecha de nacimiento es inválida o el paciente es menor de ${MIN_AGE} años.` });
+        if (!isValidFechaNacimiento(fechaNacimiento)) {
+            logger.warn(`Intento de modificar paciente con fecha de nacimiento inválida: ${fechaNacimiento}`);
+            return res.status(400).json({ message: 'La fecha de nacimiento es inválida o posterior a hoy.' });
         }
     }
 
@@ -400,6 +425,16 @@ let { pacienteId } = req.query;
     }
 
     try {
+        const [existe] = await db.execute(
+            'SELECT 1 FROM paciente WHERE id = ? AND fechaBaja IS NULL',
+            [idPacienteNum]
+        );
+        if (existe.length === 0) {
+            return res.status(404).json({ message: 'Paciente no encontrado o ya dado de baja.' });
+        }
+
+        // Bloquea la baja si está inscrito en algún horario o si tiene sesiones PENDIENTES
+        // (de hoy en adelante). Las sesiones pasadas son historial y no impiden la baja.
         const [result] = await db.execute(
             `UPDATE paciente p
              SET fechaBaja = CURRENT_DATE()
@@ -414,7 +449,7 @@ let { pacienteId } = req.query;
              SELECT 1
              FROM sesion s
              WHERE s.idPaciente = p.id
-             AND s.fecha < CURRENT_DATE()
+             AND s.fecha >= CURRENT_DATE()
              )`,
             [idPacienteNum]
         );
@@ -424,7 +459,7 @@ let { pacienteId } = req.query;
             res.status(409).json({ message: 'No se pudo eliminar el paciente, está inscrito en algun horario o tiene alguna sesión pendiente.'});
         }else{
             logger.log(`Paciente eliminado.`);
-            res.status(201).json({ message: 'Paciente eliminado exitosamente.'});
+            res.status(200).json({ message: 'Paciente eliminado exitosamente.'});
         }
 
     } catch (error) {

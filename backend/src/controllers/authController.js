@@ -8,6 +8,11 @@ const logger = crearLogger('authController.js');
 async function login(req, res) {
     const { cedula, password, rememberMe } = req.body;
 
+    if (typeof cedula !== 'string' || !cedula.trim() || typeof password !== 'string' || !password) {
+        logger.warn('Intento de login con cédula o contraseña faltante.');
+        return res.status(400).json({ message: 'La cédula y la contraseña son requeridas.' });
+    }
+
     try {
         const [users] = await db.execute('SELECT * FROM usuario WHERE cedula = ?', [cedula]);
         const user = users[0];
@@ -123,10 +128,10 @@ async function cambiarPassword(req, res) {
     if (isNaN(id)) {
         return res.status(400).json({ message: 'ID de usuario inválido.' });
     }
-    if (!passwordActual || !passwordNueva) {
+    if (typeof passwordActual !== 'string' || typeof passwordNueva !== 'string' || !passwordActual || !passwordNueva) {
         return res.status(400).json({ message: 'La contraseña actual y la nueva son requeridas.' });
     }
-    const pass = String(passwordNueva);
+    const pass = passwordNueva;
     if (pass.length <= 5) {
         return res.status(400).json({ message: 'La contraseña nueva debe tener más de 5 caracteres.' });
     }

@@ -86,17 +86,6 @@ app.get('/public/site.webmanifest', (req, res) => {
 
 app.use('/public', express.static(publicFilesDir));
 
-app.use((err, req, res, next) => {
-    if (err instanceof multer.MulterError) {
-        logger.error('Multer Error (GLOBAL):', err.message);
-        return res.status(400).json({ message: err.message });
-    } else if (err) {
-        logger.error('Error desconocido (GLOBAL):', err.message); 
-        return res.status(500).json({ message: 'Error interno del servidor.' });
-    }
-    next(); // Si no es un error, pasa al siguiente middleware/ruta
-});
-
 // PACIENTES Y FICHA MEDICA
 app.use('/api/pacientes', pacientesRoutes);
 
@@ -127,6 +116,11 @@ app.use('/api/usuarios', usuariosRoutes);
 //PARA IMAGENES
 app.use('/api/public', uploadRoutes);
 
+// Cualquier otra ruta /api inexistente responde 404 JSON (no el index.html del SPA).
+app.use('/api', (req, res) => {
+    res.status(404).json({ message: 'Recurso no encontrado.' });
+});
+
 
 //Para servir al frontend
 const frontendPath = path.join(__dirname, '../../frontend');
@@ -134,6 +128,24 @@ app.use(express.static(frontendPath));
 
 app.get('*', (req, res) => {
      res.sendFile(path.join(frontendPath, 'index.html'));
+});
+
+// Manejador global de errores: va DESPUÉS de las rutas para recibir lo que derivan
+// express.json() (JSON malformado), multer y asyncHandler (excepciones de los controllers).
+app.use((err, req, res, next) => {
+    if (res.headersSent) {
+        return next(err);
+    }
+    if (err instanceof multer.MulterError) {
+        logger.error(`Multer Error (GLOBAL): ${err.message}`);
+        return res.status(400).json({ message: err.message });
+    }
+    if (err.type === 'entity.parse.failed') {
+        return res.status(400).json({ message: 'El cuerpo de la solicitud no es un JSON válido.' });
+    }
+    logger.error(`Error no controlado en ${req.method} ${req.originalUrl}: ${err.message}`);
+    logger.error(err.stack);
+    return res.status(500).json({ message: 'Error interno del servidor.' });
 });
 
 // Se definen los middelwares antes y las rutas antes

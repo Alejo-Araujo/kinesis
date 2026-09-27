@@ -403,6 +403,7 @@ function inicializarAgendaDetailModalListeners() {
                     const confirmacion = await mostrarConfirmacion('¿Está seguro que desea eliminar el paciente de este horario?', 'Eliminar Elemento', 'Sí, Eliminar', 'Cancelar', 'btn-danger');
                     if(!confirmacion){
                         mostrarMensaje('Paciente no eliminado', 'info');
+                        return;
                     }
     
                     const grupoPacienteData = {
@@ -485,6 +486,7 @@ function inicializarAgendaDetailModalListeners() {
                     const confirmacion = await mostrarConfirmacion('¿Está seguro que desea agregar el Fisioterapeuta a este horario?');
                     if(!confirmacion){
                         mostrarMensaje('Fisioterapeuta no agregado', 'info');
+                        return;
                     }
     
                     const grupoFisioData = {
@@ -570,6 +572,7 @@ function inicializarAgendaDetailModalListeners() {
                     const confirmacion = await mostrarConfirmacion('¿Está seguro que desea eliminar el fisioterapeuta de este horario?', 'Eliminar Elemento', 'Sí, Eliminar', 'Cancelar', 'btn-danger');
                     if(!confirmacion){
                         mostrarMensaje('Fisioterapeuta no eliminado', 'info');
+                        return;
                     }
     
                     const grupoFisioData = {
@@ -688,19 +691,10 @@ function inicializarAgendaDetailModalListeners() {
                         throw new Error(errorData.message || `Error al eliminar el grupo: ${response.statusText}`);
                     }
                     mostrarMensaje('Grupo eliminado exitosamente.', 'success');
+                    // El grupo ya no existe (el backend responde 404 si se lo vuelve a pedir):
+                    // sólo se cierra el detalle y se refresca la agenda.
                     agendaDetailModal.hide();
-
-
-                    const horarioActualizado = await fetchHorarioByCompositeKey(diaSemana, horaInicio, horaFin);
-                    
-                    if (horarioActualizado) {
-                        showAgendaDetailModal(horarioActualizado);
-                        renderAgendaTable(); 
-                    } else {
-                        agendaDetailModal.hide(); 
-                        renderAgendaTable();
-                        mostrarMensaje('Grupo elimiado, pero no se pudo actualizar el detalle del horario. Reabrir el modal para ver los cambios.', 'warning');
-                    }
+                    renderAgendaTable();
                     
 
                 } catch (error) {

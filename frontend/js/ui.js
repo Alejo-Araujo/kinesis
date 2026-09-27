@@ -122,6 +122,7 @@ function limpiarFiltros(containerId, renderTable) {
     const campos = filtrosContainer.querySelectorAll('input[type="text"], select');
 
     const mesActual = new Date().getMonth() + 1;
+    const anioActual = String(new Date().getFullYear());
 
     campos.forEach(campo => {
         if (campo.type === 'text') {
@@ -129,6 +130,9 @@ function limpiarFiltros(containerId, renderTable) {
         } else if (campo.tagName === 'SELECT') {
             if (campo.id.startsWith('filtroMes')) {
                 campo.value = mesActual;
+            } else if (campo.id.startsWith('anio')) {
+                // Selects de año (p.ej. anioCuotasFiltro): por defecto el año actual, no la 1ª opción.
+                campo.value = anioActual;
             } else {
                 campo.selectedIndex = 0;
             }

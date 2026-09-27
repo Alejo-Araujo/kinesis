@@ -2,9 +2,38 @@ const db = require('../db');
 const bcrypt = require('bcryptjs');
 const crearLogger = require('../../plugins/logger.plugin.js');
 const logger = crearLogger('usuariosController.js');
+const { esTexto, esFechaISOValida, hoyISO, esEmailValido, normalizarTelefono } = require('../utils/validaciones.js');
 
 function isValidCedula(cedula) {
     return typeof cedula === 'string' && /^\d{7,8}$/.test(cedula.trim());
+}
+
+const vacio = v => v === undefined || v === null || (esTexto(v) && v.trim() === '');
+
+// Valida y normaliza los campos opcionales del usuario (email, teléfono, fecha de nacimiento).
+// Devuelve { error } o { gmail, telefono, fechaNacimiento } listos para guardar.
+function validarOpcionales({ gmail, telefono, fechaNacimiento }) {
+    let email = null;
+    if (!vacio(gmail)) {
+        if (!esEmailValido(gmail)) return { error: 'El formato del email es inválido.' };
+        email = gmail.trim().toLowerCase();
+    }
+
+    let tel = null;
+    if (!vacio(telefono)) {
+        tel = normalizarTelefono(telefono);
+        if (!tel) return { error: 'El formato del teléfono es inválido. Debe comenzar con "+" seguido del código de país y el número (Ej: +59899123456).' };
+    }
+
+    let nacimiento = null;
+    if (!vacio(fechaNacimiento)) {
+        if (!esFechaISOValida(fechaNacimiento) || fechaNacimiento.trim() > hoyISO()) {
+            return { error: 'La fecha de nacimiento es inválida o posterior a hoy.' };
+        }
+        nacimiento = fechaNacimiento.trim();
+    }
+
+    return { gmail: email, telefono: tel, fechaNacimiento: nacimiento };
 }
 
 function esForce(req) {
@@ -111,11 +140,15 @@ async function getUsuarios(req, res) {
 async function crearUsuario(req, res) {
     const { nomyap, cedula, gmail, telefono, fechaNacimiento, esFisio, esAdmin } = req.body;
 
-    if (!nomyap || !nomyap.trim()) {
+    if (!esTexto(nomyap) || !nomyap.trim()) {
         return res.status(400).json({ message: 'El nombre y apellido es requerido.' });
     }
     if (!cedula || !isValidCedula(String(cedula))) {
         return res.status(400).json({ message: 'La cédula es requerida y debe tener 7 u 8 dígitos.' });
+    }
+    const opcionales = validarOpcionales({ gmail, telefono, fechaNacimiento });
+    if (opcionales.error) {
+        return res.status(400).json({ message: opcionales.error });
     }
 
     const ced = String(cedula).trim();
@@ -133,7 +166,7 @@ async function crearUsuario(req, res) {
         const [ins] = await conn.execute(
             `INSERT INTO usuario (nomyap, cedula, gmail, telefono, fechaNacimiento, passwordUser, fechaCreacion)
              VALUES (?, ?, ?, ?, ?, ?, CURDATE())`,
-            [nomyap.trim(), ced, gmail || null, telefono || null, fechaNacimiento || null, passwordHash]
+            [nomyap.trim(), ced, opcionales.gmail, opcionales.telefono, opcionales.fechaNacimiento, passwordHash]
         );
         const idUsuario = ins.insertId;
 
@@ -163,11 +196,15 @@ async function actualizarUsuario(req, res) {
     if (isNaN(id)) {
         return res.status(400).json({ message: 'ID de usuario inválido.' });
     }
-    if (!nomyap || !nomyap.trim()) {
+    if (!esTexto(nomyap) || !nomyap.trim()) {
         return res.status(400).json({ message: 'El nombre y apellido es requerido.' });
     }
     if (!cedula || !isValidCedula(String(cedula))) {
         return res.status(400).json({ message: 'La cédula es requerida y debe tener 7 u 8 dígitos.' });
+    }
+    const opcionales = validarOpcionales({ gmail, telefono, fechaNacimiento });
+    if (opcionales.error) {
+        return res.status(400).json({ message: opcionales.error });
     }
 
     const ced = String(cedula).trim();
@@ -215,7 +252,7 @@ async function actualizarUsuario(req, res) {
         await conn.execute(
             `UPDATE usuario SET nomyap = ?, cedula = ?, gmail = ?, telefono = ?, fechaNacimiento = ?
              WHERE id = ?`,
-            [nomyap.trim(), ced, gmail || null, telefono || null, fechaNacimiento || null, id]
+            [nomyap.trim(), ced, opcionales.gmail, opcionales.telefono, opcionales.fechaNacimiento, id]
         );
 
         // Rol fisio

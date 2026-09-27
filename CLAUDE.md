@@ -76,13 +76,27 @@ npm run dev      # nodemon (recarga en caliente); o `npm start` para node plano
     el dropdown **"Otros"** de la navbar y `perfil.js` lo muestra solo a admins (se decide con
     `/api/auth/me`).
 - **grupo**: horario recurrente. **PK compuesta** `(diaSemana, horaInicio, horaFin)`.
-  `diaSemana` válido: Lunes..Sabado (sin Domingo). Baja lógica con `fechaBaja`.
+  `diaSemana` válido: Lunes..Sabado (sin Domingo; `isValidDiaSemana` es **síncrona**, si fuera
+  async devolvería una Promise y nunca bloquearía). `horaInicio < horaFin`. Baja lógica con
+  `fechaBaja`; `GET /api/agenda/horario` de un grupo dado de baja responde 404.
 - **grupopaciente** / **grupofisioterapeuta**: inscripción de paciente/fisio a un grupo.
   PK = (idPaciente|idFisio, diaSemana, horaInicio, horaFin). Baja lógica con `fechaBaja`.
+  Sólo se puede inscribir en grupos vigentes (404 si el grupo no existe o fue eliminado) y sólo
+  pacientes no dados de baja. Sacar de un grupo a alguien que no está inscripto → 404.
 - **sesion**: **PK compuesta `(fecha, horaInicio, horaFin)`** — sólo una sesión por
   franja horaria en toda la agenda. Campos `idFisio`, `idPaciente`, `monto`, etc.
+  Fecha calendario real (rechaza `2026-02-30`), paciente activo, y un mismo paciente no puede
+  tener dos sesiones solapadas el mismo día (409). Modificar una sesión no cambia su fecha.
 - **cuota**: **PK `(idPaciente, mes, anio)`**. `monto` (tarifa base), `montoDescuento`
   (monto realmente cobrado), `descuento` (%), `fechaPago`, `metodoPago`, `fechaBaja`.
+  - **Cuota del mes al cambiar grupos** (`backend/src/utils/cuotas.js` → `recalcularCuotaDelMes`,
+    usado por agenda y `restaurarGrupos`): si la cuota del mes está **pendiente** se ajusta
+    `monto`/`montoDescuento` a la tarifa de su cantidad de grupos; si está **pagada o cancelada no se
+    toca**; si **no existe** se genera sólo al inscribir/restaurar y **sólo antes del día 25**.
+    Sacar a un paciente de su último grupo **no cancela** la cuota del mes.
+  - **Registrar pago**: 404 si la cuota no existe, 409 si está cancelada; `descuento` entero 0..100
+    (0 es válido), `montoDescuento` entre 0 y `monto`, `fechaPago` fecha real, descripción admite
+    tildes/ñ. Alta manual de cuota: mes 1..12, montos ≥ 0, paciente activo.
 - **tarifagrupo**: `cantidadDias` (1..5) -> `monto`, con vigencia `fechaDesde/fechaHasta`.
   **PK compuesta `(cantidadDias, fechaDesde)`** (migración `backend/sql/2026-09-21_tarifa_vigencia.sql`):
   admite historial de tarifas por cantidad de días. La tarifa **vigente** es la fila con
@@ -93,13 +107,18 @@ npm run dev      # nodemon (recarga en caliente); o `npm start` para node plano
   (`DATE_FORMAT(CURDATE(),'%Y-%m-01') BETWEEN fechaDesde AND IFNULL(fechaHasta,'9999-12-31')`).
   El alta de tarifa usa `CALL sp_nueva_tarifa(cantidadDias, monto, fechaDesde)`, que cierra la
   vigente e inserta la nueva atómicamente (con guarda anti-solapamiento). Convención: `fechaDesde`
-  = 1° de mes. Tarifas actuales: 1→1500, 2→2600, 3→3300, 4→4000, 5→5500.
+  = 1° de mes (el backend rechaza otra fecha de inicio). Tarifas actuales: 1→1500, 2→2600,
+  3→3300, 4→4000, 5→5500. No se puede borrar la **única** tarifa de una `cantidadDias` (409).
   - **CRUD**: `/api/tarifas` (admin) — `tarifasController.js` / `tarifasRoutes.js`. `GET /` (historial con
     estado Vigente/Programada/Historica), `GET /vigentes`, `POST /` (alta vía SP), `PUT /` (corrige sólo el
     `monto` de una fila, identificada por PK), `DELETE /` (borra sólo la tarifa más reciente de una
     `cantidadDias` y reabre la anterior; las históricas no se borran). Frontend: `frontend/js/tarifas.js`,
     vista `#divTarifas` en el menú **Facturación → Tarifas**.
-- **diagnostico** / **nombrediagnostico**: diagnósticos por paciente.
+- **diagnostico** / **nombrediagnostico**: diagnósticos por paciente. Alta y modificación del
+  nombre usan la misma validación (`isValidNombre`, sin HTML); la ficha además lo escapa al
+  renderizar. Un paciente no puede tener dos veces el mismo diagnóstico (409).
+- **paciente**: `genero` ∈ {M, F, O}; `fechaCreacion` la pone el servidor. La **baja** se bloquea
+  si está en algún grupo o tiene sesiones **de hoy en adelante** (las pasadas son historial).
 - **view_cuota_estado** (VIEW sobre `cuota`): agrega columna `estado`:
   `Cancelada` (fechaBaja), `Pagada` (fechaPago), `Pendiente` (mes actual y día < 25),
   `Atrasada` (mes pasado, o mes actual con día >= 25). El día 25 del mes es el corte.
@@ -124,7 +143,16 @@ npm run dev      # nodemon (recarga en caliente); o `npm start` para node plano
   `innerHTML` con interpolación (riesgo XSS). No depender de "variables globales por id"
   del navegador; usar `document.getElementById`.
 - **Auth**: rutas protegidas con `authenticateToken`; las de cuotas además con
-  `authorizeAdmin`. El JWT payload lleva `{ idUsuario, cedula }`.
+  `authorizeAdmin`. El JWT payload lleva `{ idUsuario, cedula }`. `authenticateToken` además
+  consulta la base en cada request: si el usuario fue dado de baja responde **401** aunque el
+  token no haya vencido.
+- **Errores en controllers**: todos los handlers de rutas van envueltos en `asyncHandler`
+  (`middelwares/asyncHandler.js`); una excepción no atrapada llega al manejador global de
+  `server.js` (500 JSON) en vez de tumbar el proceso (Express 4 no captura errores async y el
+  `unhandledRejection` hace `process.exit(1)`). Validadores: usar `utils/validaciones.js`
+  (toleran cualquier tipo: un número en vez de string debe dar 400, no excepción).
+  JSON malformado → 400; ruta `/api/...` inexistente → 404 JSON.
+- **Paginación**: `limit` se acota a 500 (pacientes y cuotas).
 
 ## Verificar cambios contra la app en local
 
@@ -144,7 +172,8 @@ backend/
     db.js                # pool mysql2
     controllers/         # pacientes, auth, agenda, calendario, cuotas, diagnosticos, ...
     routes/              # una ruta por dominio
-    middelwares/         # authMiddelware (authenticateToken, authorizeAdmin), multer
+    middelwares/         # authMiddelware (authenticateToken, authorizeAdmin), asyncHandler
+    utils/               # validaciones.js (fechas, email, teléfono), cuotas.js (cuota del mes)
     cron/                # tareas del 1° de mes (generación de cuotas)
   plugins/logger.plugin.js
 frontend/
@@ -164,7 +193,27 @@ frontend/
   `{ id, nombre, cedula }` — y se cierra con `cerrarSelectorPaciente()`. La tabla usa el
   motor compartido `inicializarPatientTable`/`renderPacientesTable` de `pacientes.js`.
 
+## Pendientes conocidos (decididos, todavía NO implementar)
+
+- **Usuario sin rol**: un usuario activo que no es fisio ni admin (hoy JUAN ANDRADA, id 4) puede
+  loguearse y usar todo lo clínico (pacientes, agenda, calendario). Falta decidir qué puede ver.
+- **Reactivar usuario**: un usuario dado de baja no se puede reactivar ni volver a dar de alta con
+  la misma cédula (409). Se agregará una funcionalidad de "reactivar usuario".
+- **Logs**: `crearLogger` (`plugins/logger.plugin.js`) acepta un solo argumento, así que en
+  `logger.error('texto:', error.message)` la causa se pierde; además varios controllers usan un
+  nombre de servicio equivocado. Usar template strings mientras tanto.
+- **Crons**: los scripts de `cron/` no cierran el pool y el proceso no termina solo; el orden entre
+  generación de cuotas y baja por deuda importa. Se maneja desde el hosting.
+- Por diseño (confirmado): borrar un nombre de diagnóstico borra los diagnósticos de pacientes dados
+  de baja; corregir el monto de una tarifa reclasifica el balance histórico (cruza por monto); el
+  contador de pacientes muestra las filas de la página; el selector de pacientes filtra "Activos".
+
 ## Historial
 
 - 2026-08-30: corregidos 14 bugs (ver `Desktop/archivos_modificados_gestionFisioterapia.txt`)
   y cargados ~300 pacientes de prueba en `kinesis` (cédulas 61000000-61000299).
+- 2026-09-26: test integral (API + UI) y corrección de los hallazgos: caída del server por tipos
+  inesperados, cuota pagada cancelada/borrada al sacar/reinscribir en grupos, XSS en nombre de
+  diagnóstico, "Cancelar" que igual ejecutaba en la agenda, baja de paciente con condición de
+  sesiones invertida, validación de día de semana, token de usuario dado de baja, validaciones
+  de pagos/cuotas/tarifas/sesiones/usuarios, calendario el día 1, año por defecto en Cuotas.

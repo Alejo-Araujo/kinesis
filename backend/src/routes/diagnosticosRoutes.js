@@ -2,15 +2,16 @@ const express = require('express');
 const router = express.Router();
 const diagnosticosController = require('../controllers/diagnosticosController.js'); 
 const { authenticateToken } = require('../middelwares/authMiddelware.js'); 
+const ah = require('../middelwares/asyncHandler.js');
 
-router.get('/', authenticateToken, diagnosticosController.getAllNombresDiagnosticos);
-router.post('/agregarNombreDiagnostico', authenticateToken,diagnosticosController.agregarNombreDiagnostico );
-router.post('/agregarDiagnostico', authenticateToken,diagnosticosController.agregarDiagnostico );
-router.delete('/eliminarDiagnostico/:idDiagnostico', authenticateToken, diagnosticosController.eliminarDiagnostico);
+router.get('/', authenticateToken, ah(diagnosticosController.getAllNombresDiagnosticos));
+router.post('/agregarNombreDiagnostico', authenticateToken, ah(diagnosticosController.agregarNombreDiagnostico));
+router.post('/agregarDiagnostico', authenticateToken, ah(diagnosticosController.agregarDiagnostico));
+router.delete('/eliminarDiagnostico/:idDiagnostico', authenticateToken, ah(diagnosticosController.eliminarDiagnostico));
 
-router.put('/modificarNombreDiagnostico/:id', authenticateToken, diagnosticosController.modifyNombreDiagnosticoById);
+router.put('/modificarNombreDiagnostico/:id', authenticateToken, ah(diagnosticosController.modifyNombreDiagnosticoById));
 
-router.delete('/eliminarNombreDiagnostico/:id', authenticateToken, diagnosticosController.eliminarNombreDiagnostico);
+router.delete('/eliminarNombreDiagnostico/:id', authenticateToken, ah(diagnosticosController.eliminarNombreDiagnostico));
 
 
 

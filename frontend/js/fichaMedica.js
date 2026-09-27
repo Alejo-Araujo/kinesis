@@ -381,14 +381,16 @@ function renderFichaMedica(paciente) {
 
             const initialContent = diagnostico.descripcion || '';
             const initialContentEscapedForAttribute = escapeHtmlForAttribute(initialContent);
-            
+            // El nombre viene de la base: se escapa para que nunca se interprete como HTML.
+            const nombreDiagnosticoEscapado = escapeHtmlForAttribute(diagnostico.diagnosticoNombre || 'Sin Nombre');
+
             const diagnosticoHTML = `
                 <div class="diagnostico-item mb-3 border p-3 rounded">
                     <div class="d-flex justify-content-between align-items-center mb-2">
-                        <button class="btn btn-primary diagnostico-btn" data-target-obs="${diagnosticoIdUnico}">${diagnostico.diagnosticoNombre || 'Sin Nombre'}</button>
+                        <button class="btn btn-primary diagnostico-btn" data-target-obs="${diagnosticoIdUnico}">${nombreDiagnosticoEscapado}</button>
                         <div>
                             <button class="btn btn-success btn-sm me-2 btn-guardar-observacion" id="${btnGuardarIdUnico}" data-diagnostico-entry-id="${diagnostico.diagnosticoEntryId}" style="display: none;" title="Guardar cambios">Guardar</button>
-                            <button class="btn btn-danger btn-sm remove-diagnostico-btn" title="Eliminar diagnóstico" id="${btnEliminarIdUnico}" data-diagnostico-nombre="${diagnostico.diagnosticoNombre || 'Sin Nombre'}">x</button>
+                            <button class="btn btn-danger btn-sm remove-diagnostico-btn" title="Eliminar diagnóstico" id="${btnEliminarIdUnico}" data-diagnostico-nombre="${nombreDiagnosticoEscapado}">x</button>
                         </div>
                     </div>
                     <div id="${diagnosticoIdUnico}" class="observaciones-box d-none mt-2">

@@ -1,5 +1,5 @@
 import { API_BASE_URL } from "./config.js";
-import { getAuthToken } from "./login.js";
+import { getAuthToken, mostrarLogin } from "./login.js";
 
 async function fetchFisios(){
     try {

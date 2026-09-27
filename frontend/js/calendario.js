@@ -26,6 +26,15 @@ const formEstadisticas = document.getElementById('formFiltroSesiones');
 
 let currentDate = new Date();
 
+// Muestra el mes de una fecha "YYYY-MM-DD" (o ISO "YYYY-MM-DDT...") y deja currentDate en ese mes,
+// para que las flechas sigan navegando desde ahí. Se parte el string en componentes porque
+// new Date('YYYY-MM-DD') se interpreta en UTC y en Uruguay el día 1 caía en el mes anterior.
+function mostrarMesDeFecha(fechaStr) {
+    const [anio, mes] = fechaStr.split('T')[0].split('-').map(Number);
+    currentDate = new Date(anio, mes - 1, 1);
+    renderCalendar(currentDate.getMonth(), currentDate.getFullYear());
+}
+
 const calendarLoadingOverlay = document.getElementById('calendar-loading-overlay');
 
 async function fetchSesiones(mes,anio){
@@ -477,8 +486,7 @@ const tituloAgregarSesionModal = document.getElementById('sessionDetailModalLabe
                             sessionDetailModal.hide();
                             formAgregarSesion.reset();
                             formAgregarSesion.classList.remove('was-validated');
-                            const fechaDate = new Date(sesionData.fecha);
-                            renderCalendar(fechaDate.getMonth(),fechaDate.getFullYear());
+                            mostrarMesDeFecha(sesionData.fecha);
                             modalSesionesDiasInstance.hide();
 
         
@@ -519,8 +527,7 @@ const tituloAgregarSesionModal = document.getElementById('sessionDetailModalLabe
                             sessionDetailModal.hide();
                             formAgregarSesion.reset();
                             formAgregarSesion.classList.remove('was-validated');
-                            const fechaDate = new Date(sesionData.fecha);
-                            renderCalendar(fechaDate.getMonth(),fechaDate.getFullYear());
+                            mostrarMesDeFecha(sesionData.fecha);
                             modalSesionesDiasInstance.hide();
         
                         } catch (error) {
@@ -616,8 +623,7 @@ const tituloAgregarSesionModal = document.getElementById('sessionDetailModalLabe
                             sessionDetailModal.hide();
                             formAgregarSesion.reset();
                             formAgregarSesion.classList.remove('was-validated');
-                            const fechaDate = new Date(fecha);
-                            renderCalendar(fechaDate.getMonth(),fechaDate.getFullYear());
+                            mostrarMesDeFecha(fecha);
                             modalSesionesDiasInstance.hide();
         
                         } catch (error) {

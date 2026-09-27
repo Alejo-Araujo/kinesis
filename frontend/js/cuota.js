@@ -604,9 +604,10 @@ function inicializarCuotaDetailModalListeners(){
             }
 
             } catch (error) {
-                mostrarMensaje('Error al pagar/modificar cuota.', 'danger');
+                console.error('Error al pagar/modificar cuota:', error);
+                mostrarMensaje(error.message || 'Error al pagar/modificar cuota.', 'danger');
             }
-    });           
+    });
     
     btnConfirmarRestauracion.addEventListener('click', async () => {
         const idPaciente = modalConfirmarRestauracion.dataset.idPaciente;

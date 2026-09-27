@@ -30,7 +30,7 @@ async function getPacienteById(req, res) {
         const [diagnosticosRows] = await db.execute(
             `SELECT d.id AS diagnosticoEntryId, nd.id AS diagnosticoId, nd.nombre AS diagnosticoNombre, d.descripcion
              FROM diagnostico d
-             JOIN nombreDiagnostico nd ON d.idNombreDiagnostico = nd.id
+             JOIN nombrediagnostico nd ON d.idNombreDiagnostico = nd.id
              WHERE d.idPaciente = ?`,
             [patientId]
         );

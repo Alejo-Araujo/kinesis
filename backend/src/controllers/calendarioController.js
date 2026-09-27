@@ -2,6 +2,30 @@ const db = require('../db');
 
 const  crearLogger  = require('../../plugins/logger.plugin.js');
 const logger = crearLogger('pacientesController.js');
+const { esFechaISOValida } = require('../utils/validaciones.js');
+
+// El paciente de una sesión debe existir y no estar dado de baja.
+async function pacienteActivo(idPaciente) {
+    const [rows] = await db.execute(
+        'SELECT 1 FROM paciente WHERE id = ? AND fechaBaja IS NULL LIMIT 1',
+        [idPaciente]
+    );
+    return rows.length > 0;
+}
+
+// ¿El paciente ya tiene otra sesión ese día que se superpone con [horaInicio, horaFin)?
+// `excluir` = franja original de la sesión que se está modificando.
+async function haySesionSolapada(fecha, horaInicio, horaFin, idPaciente, excluir = null) {
+    let sql = `SELECT 1 FROM sesion
+               WHERE fecha = ? AND idPaciente = ? AND horaInicio < ? AND horaFin > ?`;
+    const params = [fecha, idPaciente, horaFin, horaInicio];
+    if (excluir) {
+        sql += ' AND NOT (horaInicio = ? AND horaFin = ?)';
+        params.push(excluir.horaInicio, excluir.horaFin);
+    }
+    const [rows] = await db.execute(sql + ' LIMIT 1', params);
+    return rows.length > 0;
+}
 
 // Un fisio está disponible sólo si ni él (fisioterapeuta) ni su usuario están dados de baja.
 async function fisioActivo(idFisio) {
@@ -23,12 +47,13 @@ function isValidAnio(anio) {
     return typeof anio === 'number' && anio >= 2025;
 }
 
+// Acepta "YYYY-MM-DD" o un ISO con hora ("YYYY-MM-DDT..."): se valida la parte de la fecha
+// como fecha calendario real (rechaza 2026-02-30, que MariaDB guardaba como 0000-00-00).
 function isValidFecha(fechaString) {
     if (!fechaString || typeof fechaString !== 'string') {
         return false;
     }
-    const date = new Date(fechaString);
-    return !isNaN(date.getTime());
+    return esFechaISOValida(fechaString.split('T')[0]);
 }
 
 function isValidHora(horaString) {
@@ -178,16 +203,26 @@ let { fecha, horaInicio, horaFin, idFisio, idPaciente } = req.body;
         return res.status(400).json({ message: 'El formato del id del paciente es inválido.' });
     }
 
+    const fechaSesion = fecha.split('T')[0];
+
     try {
         if (!(await fisioActivo(idFisioNum))) {
             logger.warn(`Intento de crear sesión con un fisio inexistente o dado de baja: ${idFisio}`);
             return res.status(400).json({ message: 'El fisioterapeuta no está disponible (inexistente o dado de baja).' });
         }
+        if (!(await pacienteActivo(idPacienteNum))) {
+            logger.warn(`Intento de crear sesión con un paciente inexistente o dado de baja: ${idPaciente}`);
+            return res.status(404).json({ message: 'El paciente no existe o fue dado de baja.' });
+        }
+        if (await haySesionSolapada(fechaSesion, horaInicio, horaFin, idPacienteNum)) {
+            logger.warn(`Intento de crear sesión solapada para el paciente ${idPaciente} el ${fechaSesion}`);
+            return res.status(409).json({ message: 'El paciente ya tiene una sesión ese día que se superpone con ese horario.' });
+        }
         const [result] = await db.execute(
             `INSERT INTO sesion
             (fecha, horaInicio, horaFin, idFisio, idPaciente)
             VALUES (?, ?, ?, ?, ?)`,
-            [fecha, horaInicio, horaFin, idFisioNum, idPacienteNum]
+            [fechaSesion, horaInicio, horaFin, idFisioNum, idPacienteNum]
         );
 
         if(result.affectedRows === 0 ){
@@ -286,6 +321,16 @@ if (!fecha || !horaInicio || !horaFin || !idFisio || !idPaciente) {
         if (!(await fisioActivo(idFisioNum))) {
             logger.warn(`Intento de modificar sesión con un fisio inexistente o dado de baja: ${idFisio}`);
             return res.status(400).json({ message: 'El fisioterapeuta no está disponible (inexistente o dado de baja).' });
+        }
+        if (!(await pacienteActivo(idPacienteNum))) {
+            logger.warn(`Intento de modificar sesión con un paciente inexistente o dado de baja: ${idPaciente}`);
+            return res.status(404).json({ message: 'El paciente no existe o fue dado de baja.' });
+        }
+        // La fecha de la sesión no se modifica (se mantiene la original).
+        if (await haySesionSolapada(fechaBienOriginal, horaInicio, horaFin, idPacienteNum,
+            { horaInicio: horaInicioOriginal, horaFin: horaFinOriginal })) {
+            logger.warn(`Intento de modificar sesión solapándola con otra del paciente ${idPaciente} el ${fechaBienOriginal}`);
+            return res.status(409).json({ message: 'El paciente ya tiene una sesión ese día que se superpone con ese horario.' });
         }
         const [result] = await db.execute(
             `UPDATE sesion SET

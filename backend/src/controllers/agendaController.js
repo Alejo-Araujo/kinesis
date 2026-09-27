@@ -2,11 +2,30 @@ const db = require('../db');
 
 const  crearLogger  = require('../../plugins/logger.plugin.js');
 const logger = crearLogger('agendaController.js');
+const { recalcularCuotaDelMes } = require('../utils/cuotas.js');
 
-async function isValidDiaSemana(diaSemana){
+// Síncrona a propósito: antes era async y devolvía una Promise (siempre "truthy"),
+// por lo que `!isValidDiaSemana(...)` nunca bloqueaba días inválidos.
+function isValidDiaSemana(diaSemana){
 const dias = ['Lunes', 'Martes', 'Miercoles', 'Jueves', 'Viernes', 'Sabado'];
 return dias.includes(diaSemana);
 };
+
+// "HH:MM" -> "HH:MM:00" para poder comparar horas como strings (ya validadas con isValidHora).
+function normalizarHora(hora) {
+    return hora.length === 5 ? `${hora}:00` : hora;
+}
+
+// El grupo debe existir y no estar dado de baja.
+async function grupoVigente(diaSemana, horaInicio, horaFin) {
+    const [rows] = await db.execute(
+        `SELECT 1 FROM grupo
+         WHERE diaSemana = ? AND horaInicio = ? AND horaFin = ? AND fechaBaja IS NULL
+         LIMIT 1`,
+        [diaSemana, horaInicio, horaFin]
+    );
+    return rows.length > 0;
+}
 
 function isValidHora(hora) {
     if (typeof hora !== 'string') {
@@ -104,7 +123,7 @@ async function getHorarioByCompositeKey(req, res) {
              LEFT JOIN usuario u ON u.id = f.idUsuario AND u.fechaBaja IS NULL
              LEFT JOIN grupopaciente gp ON g.diaSemana = gp.diaSemana AND g.horaInicio = gp.horaInicio AND g.horaFin = gp.horaFin AND gp.fechaBaja IS NULL
              LEFT JOIN paciente p ON p.id = gp.idPaciente
-             WHERE g.diaSemana = ? AND g.horaInicio = ? AND g.horaFin = ?
+             WHERE g.diaSemana = ? AND g.horaInicio = ? AND g.horaFin = ? AND g.fechaBaja IS NULL
              GROUP BY g.diaSemana, g.horaInicio, g.horaFin;`;
         
         const [rows] = await db.execute(query, [diaSemana, horaInicio, horaFin]);
@@ -189,9 +208,14 @@ let { diaSemana, horaInicio, horaFin } = req.body;
         return res.status(400).json({ message: 'El formato de la hora de fin es inválido.' });
     }
 
+    if (normalizarHora(horaInicio) >= normalizarHora(horaFin)) {
+        logger.warn(`Intento de crear horario con hora de inicio mayor o igual a la de fin: ${horaInicio}-${horaFin}`);
+        return res.status(400).json({ message: 'La hora de inicio debe ser anterior a la hora de fin.' });
+    }
+
     try {
         const [result] = await db.execute(
-            `UPDATE grupo SET 
+            `UPDATE grupo SET
              fechaBaja = ?
              WHERE diaSemana = ? AND horaInicio = ? AND horaFin = ? AND fechaBaja IS NOT NULL`,
             [null, diaSemana, horaInicio, horaFin]
@@ -209,8 +233,9 @@ let { diaSemana, horaInicio, horaFin } = req.body;
         res.status(201).json({ message: 'Horario creado exitosamente.'});
 
     }else{
-        logger.log(`Horario creado. Dia de semana: ${diaSemana} desde las: ${horaInicio} hasta las: ${horaFin}`);
-        res.status(201).json({ message: 'Horario creado exitosamente.'});
+        // Se reactivó un grupo que estaba dado de baja (update, no creación).
+        logger.log(`Horario reactivado. Dia de semana: ${diaSemana} desde las: ${horaInicio} hasta las: ${horaFin}`);
+        res.status(200).json({ message: 'Horario creado exitosamente.'});
     }
 
     } catch (error) {
@@ -568,73 +593,8 @@ function validarDatosGrupo(diaSemana, horaInicio, horaFin, idPaciente) {
     return { valido: true };
 }
 
-async function recalcularCuotaPaciente(db, idPaciente) {
-    // Si la cuota esta activa, se le actualiza el monto
-    const [result] = await db.execute(`
-        UPDATE cuota c
-        SET c.monto = COALESCE((
-            SELECT tg.monto
-            FROM tarifagrupo tg
-            WHERE tg.cantidadDias = (
-                SELECT COUNT(*) FROM grupopaciente
-                WHERE idPaciente = ? AND fechaBaja IS NULL
-            )
-              AND DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                    BETWEEN tg.fechaDesde AND IFNULL(tg.fechaHasta, '9999-12-31')
-        ), c.monto)
-        WHERE c.idPaciente = ?
-          AND c.mes = MONTH(CURDATE())
-          AND c.anio = YEAR(CURDATE())
-          AND c.fechaBaja IS NULL
-          AND c.fechaPago IS NULL;
-    `, [idPaciente, idPaciente]);
-
-    // Si la cuota esta inactiva se reactiva
-    if(result.affectedRows === 0) {
-        const [result2] = await db.execute(`
-            UPDATE cuota c
-            SET fechaBaja = NULL,
-            fechaPago = NULL,
-            descripcion = null,
-            metodoPago = 'NoEspecificado',
-                monto = (
-                    SELECT tg.monto
-                    FROM tarifagrupo tg
-                    WHERE tg.cantidadDias = (
-                        SELECT COUNT(*) FROM grupopaciente
-                        WHERE idPaciente = ? AND fechaBaja IS NULL
-                    )
-                      AND DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                            BETWEEN tg.fechaDesde AND IFNULL(tg.fechaHasta, '9999-12-31'))
-            WHERE c.idPaciente = ?
-            AND c.mes = MONTH(CURDATE())
-            AND c.anio = YEAR(CURDATE())
-            AND c.fechaBaja IS NOT NULL;
-        `, [idPaciente, idPaciente]);
-
-        // Si no tiene cuota se le crea una nuev
-        if(result2.affectedRows === 0) {
-        await db.execute(`
-            INSERT INTO cuota (idPaciente, mes, anio, monto)
-            SELECT ?, MONTH(CURDATE()), YEAR(CURDATE()), tg.monto
-            FROM tarifagrupo tg
-            WHERE tg.cantidadDias = (
-                SELECT COUNT(*) FROM grupopaciente
-                WHERE idPaciente = ? AND fechaBaja IS NULL
-            )
-            AND DATE_FORMAT(CURDATE(), '%Y-%m-01')
-                    BETWEEN tg.fechaDesde AND IFNULL(tg.fechaHasta, '9999-12-31')
-            AND NOT EXISTS (
-                SELECT 1 FROM view_cuota_estado vc
-                WHERE vc.idPaciente = ?
-                AND vc.mes = MONTH(CURDATE())
-                AND vc.anio = YEAR(CURDATE())
-                AND vc.estado IN ('Pendiente','Atrasada','Pagada')
-            );
-        `, [idPaciente, idPaciente, idPaciente]);
-        }
-    }
-}
+// La cuota del mes se calcula con recalcularCuotaDelMes (utils/cuotas.js): ya no reactiva
+// cuotas canceladas ni pisa pagos registrados.
 
 async function agregarPacienteGrupo(req, res) {
     const { diaSemana, horaInicio, horaFin, idPaciente } = req.body;
@@ -646,7 +606,20 @@ async function agregarPacienteGrupo(req, res) {
     }
 
     try {
-        
+        if (!(await grupoVigente(diaSemana, horaInicio, horaFin))) {
+            logger.warn(`Intento de agregar paciente a un grupo inexistente o dado de baja: ${diaSemana} ${horaInicio}-${horaFin}`);
+            return res.status(404).json({ message: 'El grupo no existe o fue eliminado.' });
+        }
+
+        const [paciente] = await db.execute(
+            'SELECT 1 FROM paciente WHERE id = ? AND fechaBaja IS NULL',
+            [idPaciente]
+        );
+        if (paciente.length === 0) {
+            logger.warn(`Intento de agregar a un grupo un paciente inexistente o dado de baja: ${idPaciente}`);
+            return res.status(404).json({ message: 'El paciente no existe o fue dado de baja.' });
+        }
+
         const [deudas] = await db.execute(
             `SELECT 1 
              FROM view_cuota_estado 
@@ -666,7 +639,8 @@ async function agregarPacienteGrupo(req, res) {
             WHERE diaSemana = ? AND horaInicio = ? AND horaFin = ? AND idPaciente = ? AND fechaBaja IS NOT NULL
         `, [diaSemana, horaInicio, horaFin, idPaciente]);
 
-        if (updateResult.affectedRows === 0) {
+        const inscripcionNueva = updateResult.affectedRows === 0;
+        if (inscripcionNueva) {
             await db.execute(`
                 INSERT INTO grupopaciente (diaSemana, horaInicio, horaFin, idPaciente, fechaBaja)
                 VALUES (?, ?, ?, ?, NULL)
@@ -675,10 +649,12 @@ async function agregarPacienteGrupo(req, res) {
 
         await db.execute(`UPDATE paciente SET activo = 1 WHERE id = ?`, [idPaciente]);
 
-        await recalcularCuotaPaciente(db, idPaciente);
+        // Si ya tiene cuota del mes: pagada/cancelada no se toca; pendiente se ajusta a la
+        // nueva cantidad de grupos. Si no tiene, se genera sólo antes del día 25.
+        await recalcularCuotaDelMes(db, idPaciente, { generarSiFalta: true });
 
         logger.log('Paciente agregado al grupo exitosamente');
-        return res.status(200).json({ message: 'Paciente agregado exitosamente.', pacienteId: idPaciente });
+        return res.status(inscripcionNueva ? 201 : 200).json({ message: 'Paciente agregado exitosamente.', pacienteId: idPaciente });
 
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') {
@@ -699,13 +675,19 @@ async function eliminarPacienteGrupo(req, res) {
     }
 
     try {
-        await db.execute(`
+        const [result] = await db.execute(`
             UPDATE grupopaciente
             SET fechaBaja = CURDATE()
             WHERE diaSemana = ? AND horaInicio = ? AND horaFin = ? AND idPaciente = ? AND fechaBaja IS NULL
         `, [diaSemana, horaInicio, horaFin, idPaciente]);
 
-        // Si ya no está en ningún grupo → desactivar paciente y dar de baja cuota
+        // No se puede sacar de un grupo a un paciente que no está inscripto en él.
+        if (result.affectedRows === 0) {
+            logger.warn(`Intento de sacar al paciente ${idPaciente} de un grupo en el que no está: ${diaSemana} ${horaInicio}-${horaFin}`);
+            return res.status(404).json({ message: 'El paciente no está inscripto en este grupo.' });
+        }
+
+        // Si ya no está en ningún grupo → desactivar paciente
         await db.execute(`
             UPDATE paciente p
             SET p.activo = 0
@@ -713,19 +695,9 @@ async function eliminarPacienteGrupo(req, res) {
               AND (SELECT COUNT(*) FROM grupopaciente gp WHERE gp.idPaciente = p.id AND gp.fechaBaja IS NULL) = 0
         `, [idPaciente]);
 
-        // Si todavía tiene otros grupos → recalcular cuota
-        await recalcularCuotaPaciente(db, idPaciente);
-
-        await db.execute(`
-            UPDATE cuota c
-            SET c.fechaBaja = CURDATE()
-            WHERE c.idPaciente = ?
-              AND c.mes = MONTH(CURDATE())
-              AND c.anio = YEAR(CURDATE())
-              AND c.fechaBaja IS NULL
-              AND (SELECT COUNT(*) FROM grupopaciente gp WHERE gp.idPaciente = c.idPaciente AND gp.fechaBaja IS NULL) = 0
-        `, [idPaciente]);
-
+        // La cuota del mes NO se cancela (aunque quede sin grupos): si está pendiente se ajusta
+        // a los grupos que le quedan; si ya está pagada o cancelada no se toca.
+        await recalcularCuotaDelMes(db, idPaciente);
 
         logger.log('Paciente eliminado del grupo exitosamente');
         return res.status(200).json({ message: 'Paciente eliminado exitosamente.', pacienteId: idPaciente });
@@ -781,28 +753,34 @@ let { diaSemana, horaInicio, horaFin, idFisio } = req.body;
     }
 
     try {
+        if (!(await grupoVigente(diaSemana, horaInicio, horaFin))) {
+            logger.warn(`Intento de agregar fisioterapeuta a un grupo inexistente o dado de baja: ${diaSemana} ${horaInicio}-${horaFin}`);
+            return res.status(404).json({ message: 'El grupo no existe o fue eliminado.' });
+        }
+
         const [result] = await db.execute(
             `UPDATE grupofisioterapeuta SET
              fechaBaja = ?
              WHERE diaSemana = ? AND horaInicio = ? AND horaFin = ? AND idFisio = ? AND fechaBaja IS NOT NULL`,
             [null, diaSemana, horaInicio, horaFin, idFisio]
         );
-      
+
         if(result.affectedRows === 0 ){
-        
-            
+
+
             const [result2] = await db.execute(
-            `INSERT INTO grupofisioterapeuta 
+            `INSERT INTO grupofisioterapeuta
             (diaSemana, horaInicio, horaFin, idFisio, fechaBaja)
             VALUES (?, ?, ?, ?, ?)`,
             [diaSemana, horaInicio, horaFin, idFisio, null]
         );
         logger.log(`Fisioterapeuta agregado al grupo exitosamente`);
-        res.status(200).json({ message: 'Fisioterapeuta agregado exitosamente.', fisioId: idFisio });
+        res.status(201).json({ message: 'Fisioterapeuta agregado exitosamente.', fisioId: idFisio });
         }else{
 
+        // Se reactivó una inscripción previa (update, no creación).
         logger.log(`Fisioterapeuta agregado al grupo exitosamente`);
-        res.status(201).json({ message: 'Fisioterapeuta agregado exitosamente.', fisioId: idFisio });
+        res.status(200).json({ message: 'Fisioterapeuta agregado exitosamente.', fisioId: idFisio });
         }
         
 
@@ -856,13 +834,13 @@ let { diaSemana, horaInicio, horaFin, idFisio } = req.body;
         );
       
         if(result.affectedRows === 0 ){
-        
-        logger.log(`Fisioterapeuta no encontrado o ya eliminado al grupo exitosamente`);
-        res.status(200).json({ message: 'Fisioterapeuta eliminado exitosamente.', fisioId: idFisio });
+
+        logger.warn(`Intento de sacar al fisioterapeuta ${idFisio} de un grupo en el que no está`);
+        res.status(404).json({ message: 'El fisioterapeuta no está asignado a este grupo.' });
         }else{
 
         logger.log(`Fisioterapeuta eliminado del grupo exitosamente`);
-        res.status(201).json({ message: 'Fisioterapeuta eliminado exitosamente.', fisioId: result.insertId });
+        res.status(200).json({ message: 'Fisioterapeuta eliminado exitosamente.', fisioId: idFisio });
         }
         
 

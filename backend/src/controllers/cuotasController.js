@@ -2,29 +2,39 @@ const db = require('../db');
 
 const crearLogger = require('../../plugins/logger.plugin.js');
 const logger = crearLogger('cuotasController.js');
+const { esTexto, esFechaISOValida } = require('../utils/validaciones.js');
+const { recalcularCuotaDelMes } = require('../utils/cuotas.js');
 
+const MAX_LIMIT = 500;
+
+// Valor "presente" (0 cuenta como presente; no usar !valor con montos/descuentos).
+const presente = v => v !== undefined && v !== null && v !== '';
 
 function isValidDescripcion(descripcion) {
     const maxLength = 500;
 
-    if (!descripcion) {
+    if (!presente(descripcion)) {
         return true;
     }
 
-    if (descripcion.length > maxLength) {
+    if (!esTexto(descripcion) || descripcion.length > maxLength) {
         return false;
     }
 
-    const regex = /^[a-zA-Z0-9\s.,!?&'"()-]+$/;
+    if (descripcion.trim() === '') {
+        return true;
+    }
+
+    // Letras de cualquier idioma (tildes, ñ, ü), números, espacios y puntuación común.
+    const regex = /^[\p{L}\p{N}\s.,;:!?¡¿&'"()\-\/#%$°+*@_]+$/u;
     return regex.test(descripcion.trim());
 }
 
 function isValidFechaPago(fechaPago) {
-    if (!fechaPago) {
+    if (!presente(fechaPago)) {
         return true;
     }
-    const regex = /^\d{4}-\d{2}-\d{2}$/;
-    return regex.test(fechaPago.trim());
+    return esFechaISOValida(fechaPago);
 }
 
 function isValidMetodoPago(metodoPago) {
@@ -72,11 +82,12 @@ async function getAllCuotas(req, res) {
         const { nombre, cedula, mes, anio, estado, page = 1, limit = 200 } = req.query;
 
         const pageNum = parseInt(page, 10);
-        const limitNum = parseInt(limit, 10);
+        let limitNum = parseInt(limit, 10);
 
         if (isNaN(pageNum) || pageNum <= 0 || isNaN(limitNum) || limitNum <= 0) {
             return res.status(400).json({ message: 'Parámetros de paginación inválidos (page o limit).' });
         }
+        limitNum = Math.min(limitNum, MAX_LIMIT);
 
         const offset = (pageNum - 1) * limitNum;
 
@@ -168,7 +179,7 @@ async function getCuota(req, res) {
 async function addCuota(req, res) {
     const { idPaciente, mes, anio, monto, montoDescuento} = req.body;
 
-    if (!idPaciente || !mes || !anio || !monto || montoDescuento === undefined || montoDescuento === null || montoDescuento === '') {
+    if (!presente(idPaciente) || !presente(mes) || !presente(anio) || !presente(monto) || !presente(montoDescuento)) {
         logger.warn('Intento de agregar cuota sin parámetros necesarios.');
         return res.status(400).json({ message: 'ID de paciente, mes, año, monto y monto de descuento son requeridos.' });
     }
@@ -182,8 +193,25 @@ async function addCuota(req, res) {
         logger.warn('Parámetros inválidos para agregar cuota.');
         return res.status(400).json({ message: 'ID de paciente, mes, año, monto y monto de descuento deben ser números.' });
     }
+    if (month < 1 || month > 12) {
+        return res.status(400).json({ message: 'El mes debe estar entre 1 y 12.' });
+    }
+    if (year < 2025 || year > 2100) {
+        return res.status(400).json({ message: 'El año no es válido.' });
+    }
+    if (amount < 0) {
+        return res.status(400).json({ message: 'El monto no puede ser negativo.' });
+    }
+    if (amountDescuento < 0 || amountDescuento > amount) {
+        return res.status(400).json({ message: 'El monto con descuento debe estar entre 0 y el monto de la cuota.' });
+    }
 
     try {
+        const [paciente] = await db.execute('SELECT 1 FROM paciente WHERE id = ? AND fechaBaja IS NULL', [id]);
+        if (paciente.length === 0) {
+            return res.status(404).json({ message: 'El paciente no existe o fue dado de baja.' });
+        }
+
         const [result] = await db.execute(
             `UPDATE cuota 
              SET fechaBaja = NULL, monto = ?, montoDescuento = ?, fechaPago = NULL
@@ -263,7 +291,8 @@ async function registrarPago(req, res) {
 
     const { idPaciente, mes, anio, monto, descripcion, metodoPago, fechaPago, descuento, montoDescuento } = req.body;
 
-    if (!idPaciente || !mes || !anio || !monto || !descuento || !montoDescuento) {
+    // Ojo: descuento 0 y montoDescuento 0 (100% de descuento) son valores válidos.
+    if (!presente(idPaciente) || !presente(mes) || !presente(anio) || !presente(monto) || !presente(descuento) || !presente(montoDescuento)) {
         logger.warn(`Intento de registrar pago sin parámetros necesarios. idPaciente: ${idPaciente}, mes: ${mes}, anio: ${anio}, monto: ${monto}, descuento: ${descuento}, montoDescuento: ${montoDescuento}    `);
         return res.status(400).json({ message: 'ID de paciente, mes, año, monto, descuento y monto de descuento son requeridos.' });
     }
@@ -278,6 +307,20 @@ async function registrarPago(req, res) {
     if (isNaN(id) || isNaN(month) || isNaN(year) || isNaN(amount) || isNaN(discount) || isNaN(amountWithDiscount)) {
         logger.warn('Parámetros inválidos para registrar pago.');
         return res.status(400).json({ message: 'ID de paciente, mes, año, monto, descuento y monto de descuento deben ser números.' });
+    }
+
+    if (amount < 0) {
+        return res.status(400).json({ message: 'El monto no puede ser negativo.' });
+    }
+
+    if (!/^\d+$/.test(String(descuento).trim()) || discount < 0 || discount > 100) {
+        logger.warn(`Descuento no válido: ${descuento}`);
+        return res.status(400).json({ message: 'El descuento debe ser un número entero entre 0 y 100.' });
+    }
+
+    if (amountWithDiscount < 0 || amountWithDiscount > amount) {
+        logger.warn(`Monto con descuento no válido: ${montoDescuento} (monto ${monto})`);
+        return res.status(400).json({ message: 'El monto con descuento debe estar entre 0 y el monto de la cuota.' });
     }
 
     if (!isValidDescripcion(descripcion)) {
@@ -296,32 +339,43 @@ async function registrarPago(req, res) {
     }
 
     try {
-        let result;
-        const id = parseInt(idPaciente);
-        const month = parseInt(mes);
-        const year = parseInt(anio);
-      
+        const [cuotas] = await db.execute(
+            'SELECT fechaBaja FROM cuota WHERE idPaciente = ? AND mes = ? AND anio = ?',
+            [id, month, year]
+        );
+        if (cuotas.length === 0) {
+            logger.warn(`Intento de registrar pago de una cuota inexistente: paciente ${id}, ${month}/${year}`);
+            return res.status(404).json({ message: 'La cuota no existe.' });
+        }
+        if (cuotas[0].fechaBaja !== null) {
+            logger.warn(`Intento de registrar pago de una cuota cancelada: paciente ${id}, ${month}/${year}`);
+            return res.status(409).json({ message: 'La cuota está cancelada. Reactívela antes de registrar el pago.' });
+        }
+
+        // mysql2 no acepta undefined como parámetro: si no vienen, se guardan como NULL.
+        const desc = descripcion ?? null;
+        const metodo = metodoPago ?? null;
+
         if (!fechaPago) {
-            [result] = await db.execute(
+            await db.execute(
                 `UPDATE cuota
                  SET monto = ?, descripcion = ?, metodoPago = ?, descuento = ?, montoDescuento = ?, fechaPago = NULL
                  WHERE idPaciente = ? AND mes = ? AND anio = ?`,
-                [amount, descripcion, metodoPago, discount, amountWithDiscount, id, month, year]
+                [amount, desc, metodo, discount, amountWithDiscount, id, month, year]
             );
-        
+
         } else {
-          [result] =  await db.execute(
+            await db.execute(
                 `UPDATE cuota
                  SET monto = ?, descripcion = ?, metodoPago = ?, descuento = ?, montoDescuento = ?, fechaPago = ?
                  WHERE idPaciente = ? AND mes = ? AND anio = ?`,
-                [amount, descripcion, metodoPago, discount, amountWithDiscount, fechaPago, id, month, year]
+                [amount, desc, metodo, discount, amountWithDiscount, fechaPago, id, month, year]
             );
         }
 
         const gruposSugeridos = await verificarEligibilidadRestauracion(id, month, year);
-        res.status(201).json({ 
-            message: 'Pago registrado exitosamente.', 
-            id: result.insertId || 0,
+        res.status(200).json({
+            message: 'Pago registrado exitosamente.',
             gruposRestaurables: gruposSugeridos // Devuelve array o null
         });
 
@@ -363,15 +417,17 @@ async function verificarEligibilidadRestauracion(idPaciente, mesPago, anioPago) 
     const anioActual = hoy.getFullYear();
     const fechaBajaEsperada = `${anioActual}-${mesActual}-01`;
 
+    // Sólo se sugieren grupos que siguen existiendo (no dados de baja).
     const [grupos] = await db.execute(
-        `SELECT g.diaSemana, g.horaInicio, g.horaFin 
+        `SELECT g.diaSemana, g.horaInicio, g.horaFin
          FROM grupopaciente gp
-         JOIN grupo g ON 
-            gp.diaSemana = g.diaSemana AND 
-            gp.horaInicio = g.horaInicio AND 
+         JOIN grupo g ON
+            gp.diaSemana = g.diaSemana AND
+            gp.horaInicio = g.horaInicio AND
             gp.horaFin = g.horaFin
-         WHERE gp.idPaciente = ? 
+         WHERE gp.idPaciente = ?
          AND gp.fechaBaja =  ?
+         AND g.fechaBaja IS NULL
          ORDER BY gp.fechaBaja DESC`,
         [idPaciente, fechaBajaEsperada]
     );
@@ -397,23 +453,34 @@ async function restaurarGrupos(req, res) {
         const anioActual = hoy.getFullYear();
         const fechaBajaCron = `${anioActual}-${mesActual}-01`;
 
+        const [paciente] = await db.execute('SELECT 1 FROM paciente WHERE id = ? AND fechaBaja IS NULL', [id]);
+        if (paciente.length === 0) {
+            return res.status(404).json({ message: 'El paciente no existe o fue dado de baja.' });
+        }
+
+        // Sólo se reinscribe en los grupos que siguen vigentes (los eliminados se ignoran).
         const [result] = await db.execute(
-            `UPDATE grupopaciente 
-             SET fechaBaja = NULL 
-             WHERE idPaciente = ? 
-             AND fechaBaja = ?`,
-            [idPaciente, fechaBajaCron]
+            `UPDATE grupopaciente gp
+             JOIN grupo g ON g.diaSemana = gp.diaSemana AND g.horaInicio = gp.horaInicio AND g.horaFin = gp.horaFin
+             SET gp.fechaBaja = NULL
+             WHERE gp.idPaciente = ?
+             AND gp.fechaBaja = ?
+             AND g.fechaBaja IS NULL`,
+            [id, fechaBajaCron]
         );
 
         if(result.affectedRows > 0){
             await db.execute(
-                `UPDATE paciente 
-                 SET activo = 1 
+                `UPDATE paciente
+                 SET activo = 1
                  WHERE id = ?`,
-                [idPaciente]
+                [id]
             );
-            
-            res.status(200).json({ message: 'Horarios restaurados correctamente.', restaurados: true });    
+
+            // Ajusta (o genera, antes del día 25) la cuota del mes según los grupos restaurados.
+            await recalcularCuotaDelMes(db, id, { generarSiFalta: true });
+
+            res.status(200).json({ message: 'Horarios restaurados correctamente.', restaurados: true });
         } else {
             res.status(200).json({ message: 'No se encontraron grupos recientes para restaurar.', restaurados: false });
         }

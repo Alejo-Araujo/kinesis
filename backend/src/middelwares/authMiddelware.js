@@ -14,12 +14,31 @@ function authenticateToken(req, res, next) {
     }
 
     //Verifica si el token fue generado con la JWT_SECRET del server
-    jwt.verify(token, process.env.JWT_SECRET, (err, user) => {
+    jwt.verify(token, process.env.JWT_SECRET, async (err, user) => {
         if (err) {
             logger.error(`Acceso prohibido: Token inválido o expirado. Error: ${err.message}`);
             return res.status(403).json({ message: 'Acceso prohibido: Token inválido o expirado.' }); // 403 Forbidden
         }
-        req.user = user; 
+
+        // El token por sí solo no alcanza: el usuario pudo ser dado de baja después de
+        // emitirlo (los tokens duran hasta 14 días). Se confirma contra la base en cada request.
+        // PENDIENTE (ver CLAUDE.md): un usuario activo SIN rol (ni fisio ni admin) sigue pasando.
+        try {
+            const id = parseInt(user.idUsuario, 10);
+            const [rows] = isNaN(id) ? [[]] : await db.execute(
+                'SELECT 1 FROM usuario WHERE id = ? AND fechaBaja IS NULL LIMIT 1',
+                [id]
+            );
+            if (rows.length === 0) {
+                logger.warn(`Acceso no autorizado: usuario ${user.idUsuario} inexistente o dado de baja.`);
+                return res.status(401).json({ message: 'Acceso no autorizado: el usuario fue dado de baja o no existe.' });
+            }
+        } catch (error) {
+            logger.error(`Error al verificar el usuario del token: ${error.message}`);
+            return res.status(500).json({ message: 'Error interno de autenticación.' });
+        }
+
+        req.user = user;
         logger.debug(`Usuario autenticado: ${user.cedula}`);
         next(); // Pasa al siguiente middleware/controlador
     });

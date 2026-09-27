@@ -4,6 +4,9 @@ const logger = crearLogger('authController.js');
 
 
 function isValidNombre(nombre) {
+    if (typeof nombre !== 'string') {
+        return false;
+    }
     nombre = nombre.trim().toUpperCase();
     const nameRegex = /^[A-Z0-9ÁÉÍÓÚÜÑ\s'-]{2,}$/;
     nombre = nombre.replace('DROP','');
@@ -75,11 +78,19 @@ const id = req.params.id;
         return res.status(400).json({ message: 'El nombre es requerido.' });
     }
 
+    // Misma validación que el alta: el nombre se muestra en la historia clínica,
+    // así que no puede contener HTML (antes permitía guardar <img onerror=...>).
+    if (!isValidNombre(nombre)) {
+        logger.warn(`Intento de modificar diagnostico con nombre inválido: ${nombre}`);
+        return res.status(400).json({ message: 'El nombre no tiene un formato válido (solo letras, espacios, guiones, apóstrofes y tildes, mínimo 2 caracteres).' });
+    }
+
+    nombre = nombre.toUpperCase();
 
     try {
         const [result] = await db.execute(
             `UPDATE nombrediagnostico SET
-             nombre = ? 
+             nombre = ?
              WHERE id = ?`,
             [nombre, id]
         );
@@ -88,8 +99,8 @@ const id = req.params.id;
             return res.status(404).json({ message: 'Diagnostico no encontrado o no se realizaron cambios.' });
         }
 
-        logger.log(`Datos del diagnostico con ID: ${result.insertId} actualizados correctamente.`);
-        res.status(201).json({ message: 'Datos actualizados exitosamente.', id: result.insertId });
+        logger.log(`Datos del diagnostico con ID: ${id} actualizados correctamente.`);
+        res.status(200).json({ message: 'Datos actualizados exitosamente.', id: id });
 
     } catch (error) {
 
@@ -119,6 +130,27 @@ async function agregarDiagnostico(req,res){
     }
 
     try {
+        const [paciente] = await db.execute(
+            'SELECT 1 FROM paciente WHERE id = ? AND fechaBaja IS NULL',
+            [idPaciente]
+        );
+        if (paciente.length === 0) {
+            return res.status(404).json({ message: 'El paciente no existe o fue dado de baja.' });
+        }
+
+        const [nombreDiag] = await db.execute('SELECT 1 FROM nombrediagnostico WHERE id = ?', [idNombreDiagnostico]);
+        if (nombreDiag.length === 0) {
+            return res.status(404).json({ message: 'El diagnóstico seleccionado no existe.' });
+        }
+
+        const [repetido] = await db.execute(
+            'SELECT 1 FROM diagnostico WHERE idNombreDiagnostico = ? AND idPaciente = ? LIMIT 1',
+            [idNombreDiagnostico, idPaciente]
+        );
+        if (repetido.length > 0) {
+            return res.status(409).json({ message: 'El paciente ya tiene registrado ese diagnóstico.' });
+        }
+
         const [result] = await db.execute(
             `INSERT INTO diagnostico (idNombreDiagnostico, idPaciente)
              VALUES (?, ?)`,
@@ -175,8 +207,13 @@ let { id } = req.params;
     }
 
     try {
+        const [existe] = await db.execute('SELECT 1 FROM nombrediagnostico WHERE id = ?', [diagnosticoIdNum]);
+        if (existe.length === 0) {
+            return res.status(404).json({ message: 'Diagnóstico no encontrado.' });
+        }
+
         const [result2] = await db.execute(
-            `DELETE FROM diagnostico 
+            `DELETE FROM diagnostico
             WHERE idNombreDiagnostico = ? AND idPaciente IN (SELECT id FROM paciente WHERE fechaBaja IS NOT NULL)`,
             [diagnosticoIdNum]
         );
@@ -190,8 +227,8 @@ let { id } = req.params;
         );
 
         if (result.affectedRows === 0) {
-            logger.warn(`Intento de eliminar nombre diagnostico con ID inexistente o asociado a alguna historia clínica: ${diagnosticoIdNum}`);
-            return res.status(404).json({ message: `El diagnóstico esta registrado en la historia clínica de algun paciente.` });
+            logger.warn(`Intento de eliminar nombre diagnostico asociado a alguna historia clínica: ${diagnosticoIdNum}`);
+            return res.status(409).json({ message: `El diagnóstico esta registrado en la historia clínica de algun paciente.` });
         }
 
         logger.log(`Nombre diagnostico eliminado con ID: ${id}`);
