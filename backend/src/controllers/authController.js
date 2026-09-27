@@ -18,21 +18,21 @@ async function login(req, res) {
         const user = users[0];
 
         if (!user) {
-            logger.warn(`Intento de login fallido: Cédula no encontrada: ${cedula}`);
+            logger.auditar('LOGIN_FALLIDO', { cedula, motivo: 'Cédula no registrada' }, 'warn');
             return res.status(400).json({ message: 'Credenciales inválidas.' });
         }
 
         // Verifica si la password coincide con la hasheada en la DB
         const isMatch = await bcrypt.compare(password, user.passwordUser);
-    
+
 
         if (!isMatch) {
-            logger.warn(`Intento de login fallido: Contraseña incorrecta para ${cedula}`);
+            logger.auditar('LOGIN_FALLIDO', { cedula, idUsuarioIntentado: user.id, motivo: 'Contraseña incorrecta' }, 'warn');
             return res.status(400).json({ message: 'Credenciales inválidas.' });
         }
 
         if(user.fechaBaja){
-            logger.warn(`Intento de login fallido: Usuario dado de baja`);
+            logger.auditar('LOGIN_FALLIDO', { cedula, idUsuarioIntentado: user.id, motivo: 'Usuario dado de baja' }, 'warn');
             return res.status(400).json({ message: 'Usuario dado de baja.' });
         }
 
@@ -46,12 +46,16 @@ async function login(req, res) {
         const expiresIn = rememberMe ? '14d' : '2h';
         const token = jwt.sign(payload, secret, { expiresIn });
 
-        logger.log(`Login exitoso para el usuario: ${cedula} `);
+        // El login no trae token: se asigna el usuario al contexto para que la auditoría y el
+        // log de acceso de este request queden a su nombre.
+        if (req.contexto) {
+            req.contexto.idUsuario = user.id;
+        }
+        logger.auditar('LOGIN', { cedula: user.cedula, nomyap: user.nomyap, mantenerSesion: !!rememberMe, duracionToken: expiresIn });
         res.json({ success: true, token, user: { idUsuario: user.id, nomyap:user.nomyap, cedula: user.cedula } });
 
     } catch (error) {
-        logger.error(`Error en authController.login: ${error.message}`);
-        logger.error(error.stack);
+        logger.error('Error en authController.login:', error);
         res.status(500).json({ message: 'Error interno del servidor al iniciar sesión.' });
     }
 }
@@ -78,8 +82,7 @@ async function isAdministrador(req, res) {
         }
 
     } catch (error) {
-        logger.error(`Error en authController.isAdministrador: ${error.message}`);
-        logger.error(error.stack);
+        logger.error('Error en authController.isAdministrador:', error);
         res.status(500).json({ message: 'Error interno del servidor al comprobar administrador.' });
     }
 }
@@ -114,8 +117,7 @@ async function me(req, res) {
             esAdmin: !!u.esAdmin
         });
     } catch (error) {
-        logger.error(`Error en authController.me: ${error.message}`);
-        logger.error(error.stack);
+        logger.error('Error en authController.me:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener el perfil.' });
     }
 }
@@ -150,17 +152,16 @@ async function cambiarPassword(req, res) {
 
         const coincide = await bcrypt.compare(passwordActual, rows[0].passwordUser);
         if (!coincide) {
-            logger.warn(`Cambio de contraseña rechazado: contraseña actual incorrecta (usuario ${id}).`);
+            logger.auditar('CAMBIO_PASSWORD_FALLIDO', { motivo: 'Contraseña actual incorrecta' }, 'warn');
             return res.status(400).json({ message: 'La contraseña actual es incorrecta.' });
         }
 
         const hash = await bcrypt.hash(passwordNueva, 10);
         await db.execute('UPDATE usuario SET passwordUser = ? WHERE id = ?', [hash, id]);
-        logger.log(`Contraseña actualizada para el usuario ${id}.`);
+        logger.auditar('CAMBIO_PASSWORD', { idUsuarioAfectado: id });
         res.status(200).json({ message: 'Contraseña actualizada exitosamente.' });
     } catch (error) {
-        logger.error(`Error en authController.cambiarPassword: ${error.message}`);
-        logger.error(error.stack);
+        logger.error('Error en authController.cambiarPassword:', error);
         res.status(500).json({ message: 'Error interno del servidor al cambiar la contraseña.' });
     }
 }

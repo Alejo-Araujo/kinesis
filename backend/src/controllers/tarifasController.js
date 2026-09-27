@@ -34,8 +34,7 @@ async function getTarifas(req, res) {
         `);
         res.status(200).json({ tarifas: result });
     } catch (error) {
-        logger.error('Error al obtener tarifas:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al obtener tarifas:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener tarifas.' });
     }
 }
@@ -51,8 +50,7 @@ async function getTarifasVigentes(req, res) {
         `);
         res.status(200).json({ tarifas: result });
     } catch (error) {
-        logger.error('Error al obtener tarifas vigentes:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al obtener tarifas vigentes:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener tarifas vigentes.' });
     }
 }
@@ -86,6 +84,7 @@ async function crearTarifa(req, res) {
         // El SP cierra la tarifa vigente e inserta la nueva de forma atómica,
         // garantizando que no haya solapamientos ni dos vigentes por cantidadDias.
         await db.query('CALL sp_nueva_tarifa(?, ?, ?)', [dias, amount, fechaDesde]);
+        logger.auditar('TARIFA_ALTA', { cantidadDias: dias, monto: amount, fechaDesde });
         res.status(201).json({ message: 'Tarifa creada exitosamente.' });
     } catch (error) {
         // El SP lanza SIGNAL SQLSTATE '45000' con mensajes de negocio legibles.
@@ -97,8 +96,7 @@ async function crearTarifa(req, res) {
             logger.warn('Ya existe una tarifa para esa cantidad de días y fecha de inicio.');
             return res.status(409).json({ message: 'Ya existe una tarifa para esa cantidad de días con esa fecha de inicio.' });
         }
-        logger.error('Error al crear tarifa:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al crear tarifa:', error);
         res.status(500).json({ message: 'Error interno del servidor al crear tarifa.' });
     }
 }
@@ -121,6 +119,11 @@ async function actualizarMonto(req, res) {
     }
 
     try {
+        const [previo] = await db.execute(
+            'SELECT monto FROM tarifagrupo WHERE cantidadDias = ? AND fechaDesde = ?',
+            [dias, fechaDesde]
+        );
+
         const [result] = await db.execute(
             `UPDATE tarifagrupo SET monto = ? WHERE cantidadDias = ? AND fechaDesde = ?`,
             [amount, dias, fechaDesde]
@@ -130,10 +133,13 @@ async function actualizarMonto(req, res) {
             return res.status(404).json({ message: 'No se encontró la tarifa a modificar.' });
         }
 
+        logger.auditar('TARIFA_MODIFICACION', {
+            cantidadDias: dias, fechaDesde,
+            monto: { antes: previo.length ? previo[0].monto : null, despues: amount }
+        });
         res.status(200).json({ message: 'Monto de la tarifa actualizado exitosamente.' });
     } catch (error) {
-        logger.error('Error al actualizar tarifa:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al actualizar tarifa:', error);
         res.status(500).json({ message: 'Error interno del servidor al actualizar tarifa.' });
     }
 }
@@ -187,6 +193,11 @@ async function eliminarTarifa(req, res) {
             });
         }
 
+        const [[borrada]] = await conn.execute(
+            'SELECT monto FROM tarifagrupo WHERE cantidadDias = ? AND fechaDesde = ?',
+            [dias, fechaDesde]
+        );
+
         const [del] = await conn.execute(
             `DELETE FROM tarifagrupo WHERE cantidadDias = ? AND fechaDesde = ?`,
             [dias, fechaDesde]
@@ -205,11 +216,11 @@ async function eliminarTarifa(req, res) {
         );
 
         await conn.commit();
+        logger.auditar('TARIFA_BAJA', { cantidadDias: dias, fechaDesde, monto: borrada ? borrada.monto : null, seReabrioLaAnterior: true });
         res.status(200).json({ message: 'Tarifa eliminada exitosamente. Se reactivó la tarifa anterior (si existía).' });
     } catch (error) {
         await conn.rollback();
-        logger.error('Error al eliminar tarifa:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al eliminar tarifa:', error);
         res.status(500).json({ message: 'Error interno del servidor al eliminar tarifa.' });
     } finally {
         conn.release();

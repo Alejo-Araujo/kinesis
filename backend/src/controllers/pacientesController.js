@@ -3,6 +3,7 @@ const db = require('../db');
 const  crearLogger  = require('../../plugins/logger.plugin.js');
 const logger = crearLogger('pacientesController.js');
 const { esTexto, esFechaISOValida, hoyISO, normalizarTelefono } = require('../utils/validaciones.js');
+const { diferencias } = require('../utils/auditoria.js');
 
 // Tope de filas por página (evita que un limit enorme traiga toda la tabla de una vez).
 const MAX_LIMIT = 500;
@@ -101,8 +102,7 @@ async function getAllPacientes(req, res) {
         });
 
     } catch (error) {
-        logger.error('Error al obtener pacientes de la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al obtener pacientes de la base de datos:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener pacientes.' });
     }
 }
@@ -190,13 +190,8 @@ function levenshteinDistance(a, b) {
 async function createPaciente(req, res) {
     let { nomyap, cedula, fechaNacimiento, fechaCreacion, telefono, gmail, genero, forceCreate } = req.body;
 
-    console.log(`Intentando crear paciente: ${nomyap}`);
-    console.log(`forceCreate recibido (raw):`, forceCreate);
-
-
     if (!nomyap || !telefono || !genero) {
-        logger.warn('Intento de crear paciente con datos incompletos.');
-        console.log(req.body);
+        logger.warn('Intento de crear paciente con datos incompletos.', { campos: Object.keys(req.body || {}) });
         return res.status(400).json({ message: 'Todos los campos son requeridos.' });
     }
 
@@ -280,7 +275,7 @@ async function createPaciente(req, res) {
                  WHERE id = ?`,
                 [nomyap, fechaNacimiento, telefono, gmail, genero, idPaciente]
             );
-            logger.log(`Paciente con ID: ${idPaciente} y cédula: ${cedula} reactivado.`);
+            logger.auditar('PACIENTE_REACTIVACION', { idPaciente, nomyap, cedula });
             return res.status(200).json({ message: 'Paciente reactivado exitosamente.', pacienteId: idPaciente, reactivado: true });
         }
     }
@@ -322,12 +317,11 @@ async function createPaciente(req, res) {
             [nomyap, cedula, fechaNacimiento, fechaCreacion, telefono, gmail, genero, false]
         );
 
-        logger.log(`Paciente creado con ID: ${result.insertId} y cédula: ${cedula}. Teléfono guardado: ${telefono}`);
+        logger.auditar('PACIENTE_ALTA', { idPaciente: result.insertId, nomyap, cedula, genero, confirmoNombreSimilar: isForceCreate });
         res.status(201).json({ message: 'Paciente creado exitosamente.', pacienteId: result.insertId });
 
     } catch (error) {
-        logger.error('Error al crear paciente en la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al crear paciente en la base de datos:', error);
 
         // 'ER_DUP_ENTRY' se dispara por el UNIQUE en cedula en la bdd
         if (error.code === 'ER_DUP_ENTRY') {
@@ -343,8 +337,7 @@ let { nomyap, cedula, fechaNacimiento, telefono, gmail, genero } = req.body;
 const pacienteId = req.params.id;
 
     if (!nomyap || !telefono || !genero) {
-        logger.warn('Intento de modificar paciente con datos incompletos.');
-        console.log(req.body);
+        logger.warn(`Intento de modificar paciente ${pacienteId} con datos incompletos.`, { campos: Object.keys(req.body || {}) });
         return res.status(400).json({ message: 'Todos los campos son requeridos. Menos el gmail' });
     }
 
@@ -405,9 +398,15 @@ const pacienteId = req.params.id;
     }
 
     try {
+        // Estado previo, para registrar en auditoría qué campos cambiaron.
+        const [previo] = await db.execute(
+            'SELECT nomyap, cedula, fechaNacimiento, telefono, gmail, genero FROM paciente WHERE id = ? AND fechaBaja IS NULL',
+            [pacienteId]
+        );
+
         const [result] = await db.execute(
             `UPDATE paciente SET
-             nomyap = ?, cedula = ?, fechaNacimiento = ?, telefono = ?, gmail = ?, genero = ? 
+             nomyap = ?, cedula = ?, fechaNacimiento = ?, telefono = ?, gmail = ?, genero = ?
              WHERE id = ? AND fechaBaja IS NULL`,
             [nomyap, cedula, fechaNacimiento, telefono, gmail, genero, pacienteId]
         );
@@ -416,7 +415,12 @@ const pacienteId = req.params.id;
             return res.status(404).json({ message: 'Paciente no encontrado o no se realizaron cambios.' });
         }
 
-        logger.log(`Datos del paciente con ID: ${pacienteId} actualizados correctamente. Teléfono guardado: ${telefono}`);
+        // Nombre, cédula y género con antes/después; teléfono, email y nacimiento sólo se marcan.
+        logger.auditar('PACIENTE_MODIFICACION', {
+            idPaciente: parseInt(pacienteId, 10),
+            nomyap,
+            cambios: diferencias(previo[0], { nomyap, cedula, fechaNacimiento, telefono, gmail, genero }, ['nomyap', 'cedula', 'genero'])
+        });
         res.status(200).json({ message: 'Datos actualizados exitosamente.', pacienteId: pacienteId });
 
     } catch (error) {
@@ -426,8 +430,7 @@ const pacienteId = req.params.id;
             return res.status(409).json({ message: 'La cedula ingresada ya está registrada para otro paciente.' });
         }
         
-        logger.error('Error al modificar paciente en la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al modificar paciente en la base de datos:', error);
 
         res.status(500).json({ message: 'Error interno del servidor al modificar los datos.' });
     }
@@ -450,7 +453,7 @@ let { pacienteId } = req.query;
 
     try {
         const [existe] = await db.execute(
-            'SELECT 1 FROM paciente WHERE id = ? AND fechaBaja IS NULL',
+            'SELECT nomyap, cedula FROM paciente WHERE id = ? AND fechaBaja IS NULL',
             [idPacienteNum]
         );
         if (existe.length === 0) {
@@ -479,15 +482,15 @@ let { pacienteId } = req.query;
         );
 
         if(result.affectedRows === 0 ){
-            logger.log(`No se pudo eliminar el paciente, está inscrito en algun horario o tiene alguna sesión pendiente`);
+            logger.warn(`Baja del paciente ${idPacienteNum} rechazada: está inscripto en algún horario o tiene sesiones pendientes.`);
             res.status(409).json({ message: 'No se pudo eliminar el paciente, está inscrito en algun horario o tiene alguna sesión pendiente.'});
         }else{
-            logger.log(`Paciente eliminado.`);
+            logger.auditar('PACIENTE_BAJA', { idPaciente: idPacienteNum, nomyap: existe[0].nomyap, cedula: existe[0].cedula });
             res.status(200).json({ message: 'Paciente eliminado exitosamente.'});
         }
 
     } catch (error) {
-        logger.error('Error al eliminar un paciente en la base de datos:', error.message);
+        logger.error('Error al eliminar un paciente en la base de datos:', error);
 
         res.status(500).json({ message: 'Error interno del servidor al eliminar el paciente.' });
     }

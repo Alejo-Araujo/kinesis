@@ -1,8 +1,15 @@
 const db = require('../db');
 
 const  crearLogger  = require('../../plugins/logger.plugin.js');
-const logger = crearLogger('pacientesController.js');
+const logger = crearLogger('calendarioController.js');
 const { esFechaISOValida } = require('../utils/validaciones.js');
+const { diferencias } = require('../utils/auditoria.js');
+
+// "9:00" / "09:00" -> "09:00:00" (formato en que MySQL devuelve TIME), para comparar en la auditoría.
+function horaCompleta(hora) {
+    const [h, m, s = '00'] = String(hora).split(':');
+    return `${h.padStart(2, '0')}:${m}:${s}`;
+}
 
 // El paciente de una sesión debe existir y no estar dado de baja.
 async function pacienteActivo(idPaciente) {
@@ -102,8 +109,7 @@ async function getSesionesByAnioMes(req, res){
         res.json(result);
 
     } catch (error) {
-        logger.error('Error en getSesionesByAnioMes:', error.message);
-        logger.error(error.stack);
+        logger.error('Error en getSesionesByAnioMes:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener las sesiones.' });
     }
 };
@@ -148,8 +154,7 @@ async function getSesion(req,res){
         res.json(result);
 
     } catch (error) {
-        logger.error('Error en getSesion:', error.message);
-        logger.error(error.stack);
+        logger.error('Error en getSesion:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener la sesión.' });
     }
 };
@@ -158,8 +163,7 @@ async function addSesion(req,res){
 let { fecha, horaInicio, horaFin, idFisio, idPaciente } = req.body;
 
     if (!fecha || !horaInicio || !horaFin || !idFisio || !idPaciente ) {
-        logger.warn('Intento de crear sesión con datos incompletos.');
-        console.log(req.body);
+        logger.warn('Intento de crear sesión con datos incompletos.', { fecha, horaInicio, horaFin, idFisio, idPaciente });
         return res.status(400).json({ message: 'Todos los campos son requeridos.' });
     }
 
@@ -229,17 +233,21 @@ let { fecha, horaInicio, horaFin, idFisio, idPaciente } = req.body;
             logger.error(`No se pudo crear la sesión.`);
             res.status(500).json({ message: 'No se pudo crear la sesión.'});
         }else{
-            logger.log(`Sesión creada. Fecha: ${fecha} desde las: ${horaInicio} hasta las: ${horaFin}`);
+            logger.auditar('SESION_ALTA', {
+                fecha: fechaSesion, horaInicio: horaCompleta(horaInicio), horaFin: horaCompleta(horaFin),
+                idFisio: idFisioNum, idPaciente: idPacienteNum
+            });
             res.status(201).json({ message: 'Sesión creada exitosamente.'});
         }
 
     } catch (error) {
-        logger.error('Error al agregar una sesión en la base de datos:', error.message);
-
         // 'ER_DUP_ENTRY' se dispara si coniciden las 3 PK con un dato ya ingresado
         if (error.code === 'ER_DUP_ENTRY') {
+            logger.warn(`Alta de sesión rechazada: ya hay una sesión el ${fechaSesion} de ${horaInicio} a ${horaFin}.`);
             return res.status(409).json({ message: 'Ya existe una sesión en esa fecha en ese mismo horario' });
         }
+
+        logger.error('Error al agregar una sesión en la base de datos:', error);
 
         res.status(500).json({ message: 'Error interno del servidor al agregar la sesión.' });
     }
@@ -332,6 +340,11 @@ if (!fecha || !horaInicio || !horaFin || !idFisio || !idPaciente) {
             logger.warn(`Intento de modificar sesión solapándola con otra del paciente ${idPaciente} el ${fechaBienOriginal}`);
             return res.status(409).json({ message: 'El paciente ya tiene una sesión ese día que se superpone con ese horario.' });
         }
+        const [previo] = await db.execute(
+            'SELECT horaInicio, horaFin, idFisio, idPaciente FROM sesion WHERE fecha = ? AND horaInicio = ? AND horaFin = ?',
+            [fechaBienOriginal, horaInicioOriginal, horaFinOriginal]
+        );
+
         const [result] = await db.execute(
             `UPDATE sesion SET
              horaInicio = ?, horaFin = ?, idFisio = ?, idPaciente = ?
@@ -343,18 +356,25 @@ if (!fecha || !horaInicio || !horaFin || !idFisio || !idPaciente) {
             return res.status(404).json({ message: 'Sesión no encontrada o no se realizaron cambios.' });
         }
 
-        logger.log(`Datos de la sesión actualizados correctamente.`);
+        logger.auditar('SESION_MODIFICACION', {
+            fecha: fechaBienOriginal,
+            horaInicioOriginal: horaCompleta(horaInicioOriginal),
+            horaFinOriginal: horaCompleta(horaFinOriginal),
+            cambios: diferencias(previo[0],
+                { horaInicio: horaCompleta(horaInicio), horaFin: horaCompleta(horaFin), idFisio: idFisioNum, idPaciente: idPacienteNum },
+                ['horaInicio', 'horaFin', 'idFisio', 'idPaciente'])
+        });
         res.status(200).json({ message: 'Datos actualizados exitosamente.'});
 
     } catch (error) {
 
-        // 'ER_DUP_ENTRY' se dispara por el UNIQUE en cedula en la bdd
+        // 'ER_DUP_ENTRY' se dispara por la PK (fecha, horaInicio, horaFin)
         if (error.code === 'ER_DUP_ENTRY') {
+            logger.warn(`Modificación de sesión rechazada: ya hay una sesión el ${fechaBienOriginal} de ${horaInicio} a ${horaFin}.`);
             return res.status(409).json({ message: 'Ya hay una sesión en esa fecha y en ese mismo horario' });
         }
-        
-        logger.error('Error al modificar sesión en la base de datos:', error.message);
-        logger.error(error.stack);
+
+        logger.error('Error al modificar sesión en la base de datos:', error);
 
         res.status(500).json({ message: 'Error interno del servidor al modificar los datos de la sesión.' });
     }
@@ -388,22 +408,30 @@ let { fecha, horaInicio, horaFin} = req.query;
     const fechaBien = fecha.split('T')[0];
 
     try {
+        const [previo] = await db.execute(
+            'SELECT idFisio, idPaciente FROM sesion WHERE fecha = ? AND horaInicio = ? AND horaFin = ?',
+            [fechaBien, horaInicio, horaFin]
+        );
+
         const [result] = await db.execute(
-            `DELETE FROM sesion 
+            `DELETE FROM sesion
              WHERE fecha = ? AND horaInicio = ? AND horaFin = ?`,
             [fechaBien, horaInicio, horaFin]
         );
 
         if(result.affectedRows === 0 ){
-            logger.log(`No se pudo eliminar la sesión o esta ya fue eliminada`);
+            logger.warn(`No se encontró la sesión a eliminar: ${fechaBien} ${horaInicio}-${horaFin}`);
             res.status(404).json({ message: 'Sesión no encontrada.'});
         }else{
-            logger.log(`Sesión eliminada. Fecha: ${fecha} desde las: ${horaInicio} hasta las: ${horaFin}`);
+            logger.auditar('SESION_BAJA', {
+                fecha: fechaBien, horaInicio: horaCompleta(horaInicio), horaFin: horaCompleta(horaFin),
+                idFisio: previo.length ? previo[0].idFisio : null, idPaciente: previo.length ? previo[0].idPaciente : null
+            });
             res.status(200).json({ message: 'Sesión eliminada exitosamente.'});
         }
 
     } catch (error) {
-        logger.error('Error al eliminar una sesión en la base de datos:', error.message);
+        logger.error('Error al eliminar una sesión en la base de datos:', error);
 
         res.status(500).json({ message: 'Error interno del servidor al eliminar la sesión.' });
     }
@@ -453,8 +481,7 @@ const { anio, mes, fisio } = req.query;
         res.json(result);
 
     } catch (error) {
-        logger.error('Error en getSesionesPorFisio:', error.message);
-        logger.error(error.stack);
+        logger.error('Error en getSesionesPorFisio:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener las estadísticas de las sesiones.' });
     }
 };

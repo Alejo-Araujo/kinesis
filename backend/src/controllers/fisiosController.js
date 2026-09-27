@@ -1,6 +1,6 @@
 const db = require('../db');
 const crearLogger = require('../../plugins/logger.plugin.js');
-const logger = crearLogger('authController.js');
+const logger = crearLogger('fisiosController.js');
 
 async function getAllFisios(req,res){
     try{
@@ -13,8 +13,7 @@ async function getAllFisios(req,res){
 
         res.status(200).json(rows);
     } catch (error) {
-        logger.error('Error en fisiosController.getAllFisios:', error.message);
-        logger.error(error.stack);
+        logger.error('Error en fisiosController.getAllFisios:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener los fisios.' });
     }
 };

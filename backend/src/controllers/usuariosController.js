@@ -3,6 +3,7 @@ const bcrypt = require('bcryptjs');
 const crearLogger = require('../../plugins/logger.plugin.js');
 const logger = crearLogger('usuariosController.js');
 const { esTexto, esFechaISOValida, hoyISO, esEmailValido, normalizarTelefono } = require('../utils/validaciones.js');
+const { diferencias } = require('../utils/auditoria.js');
 
 function isValidCedula(cedula) {
     return typeof cedula === 'string' && /^\d{7,8}$/.test(cedula.trim());
@@ -88,14 +89,15 @@ async function desactivarFisio(conn, idUsuario) {
 async function desactivarAdmin(conn, idUsuario) {
     await conn.execute('UPDATE administrador SET fechaBaja = CURDATE() WHERE idUsuario = ? AND fechaBaja IS NULL', [idUsuario]);
 }
-// Da de baja las inscripciones vigentes del fisio a grupos.
+// Da de baja las inscripciones vigentes del fisio a grupos. Devuelve cuántas dio de baja.
 async function bajaGruposDeFisio(conn, idUsuario) {
-    await conn.execute(
+    const [result] = await conn.execute(
         `UPDATE grupofisioterapeuta SET fechaBaja = CURDATE()
          WHERE fechaBaja IS NULL
            AND idFisio = (SELECT id FROM fisioterapeuta WHERE idUsuario = ?)`,
         [idUsuario]
     );
+    return result.affectedRows;
 }
 async function contarAdminsActivos(conn) {
     const [rows] = await conn.execute('SELECT COUNT(*) AS n FROM administrador WHERE fechaBaja IS NULL');
@@ -137,8 +139,7 @@ async function getUsuarios(req, res) {
 
         res.status(200).json({ usuarios });
     } catch (error) {
-        logger.error('Error al obtener usuarios:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al obtener usuarios:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener usuarios.' });
     }
 }
@@ -190,7 +191,10 @@ async function crearUsuario(req, res) {
             if (esAdmin) await activarAdmin(conn, idUsuario); else await desactivarAdmin(conn, idUsuario);
 
             await conn.commit();
-            logger.log(`Usuario ${idUsuario} (cédula ${ced}) reactivado.`);
+            logger.auditar('USUARIO_REACTIVACION', {
+                idUsuarioAfectado: idUsuario, nomyap: nomyap.trim(), cedula: ced,
+                roles: { fisio: !!esFisio, admin: !!esAdmin }, passwordReiniciada: true
+            });
             return res.status(200).json({ message: 'Usuario reactivado exitosamente.', id: idUsuario, reactivado: true });
         }
 
@@ -205,14 +209,17 @@ async function crearUsuario(req, res) {
         if (esAdmin) await activarAdmin(conn, idUsuario);
 
         await conn.commit();
+        logger.auditar('USUARIO_ALTA', {
+            idUsuarioAfectado: idUsuario, nomyap: nomyap.trim(), cedula: ced,
+            roles: { fisio: !!esFisio, admin: !!esAdmin }
+        });
         res.status(201).json({ message: 'Usuario creado exitosamente.', id: idUsuario });
     } catch (error) {
         await conn.rollback();
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ message: 'Ya existe un usuario con esa cédula.' });
         }
-        logger.error('Error al crear usuario:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al crear usuario:', error);
         res.status(500).json({ message: 'Error interno del servidor al crear usuario.' });
     } finally {
         conn.release();
@@ -244,7 +251,10 @@ async function actualizarUsuario(req, res) {
     const ced = String(cedula).trim();
     const conn = await db.getConnection();
     try {
-        const [existe] = await conn.execute('SELECT id FROM usuario WHERE id = ? AND fechaBaja IS NULL', [id]);
+        const [existe] = await conn.execute(
+            'SELECT id, nomyap, cedula, gmail, telefono, fechaNacimiento FROM usuario WHERE id = ? AND fechaBaja IS NULL',
+            [id]
+        );
         if (existe.length === 0) {
             return res.status(404).json({ message: 'Usuario no encontrado.' });
         }
@@ -290,10 +300,11 @@ async function actualizarUsuario(req, res) {
         );
 
         // Rol fisio
+        let gruposDadosDeBaja = 0;
         if (quiereFisio && !eraFisio) {
             await activarFisio(conn, id);
         } else if (!quiereFisio && eraFisio) {
-            await bajaGruposDeFisio(conn, id);
+            gruposDadosDeBaja = await bajaGruposDeFisio(conn, id);
             await desactivarFisio(conn, id);
         }
 
@@ -305,14 +316,27 @@ async function actualizarUsuario(req, res) {
         }
 
         await conn.commit();
+
+        const cambiosRoles = {};
+        if (quiereFisio !== eraFisio) cambiosRoles.fisio = { antes: eraFisio, despues: quiereFisio };
+        if (quiereAdmin !== eraAdmin) cambiosRoles.admin = { antes: eraAdmin, despues: quiereAdmin };
+        logger.auditar('USUARIO_MODIFICACION', {
+            idUsuarioAfectado: id,
+            nomyap: nomyap.trim(),
+            // Nombre y cédula con antes/después; email, teléfono y nacimiento sólo se marcan.
+            cambios: diferencias(existe[0],
+                { nomyap: nomyap.trim(), cedula: ced, gmail: opcionales.gmail, telefono: opcionales.telefono, fechaNacimiento: opcionales.fechaNacimiento },
+                ['nomyap', 'cedula']),
+            roles: cambiosRoles,
+            ...(gruposDadosDeBaja > 0 ? { gruposDadosDeBaja, confirmadoConForce: true } : {})
+        });
         res.status(200).json({ message: 'Usuario actualizado exitosamente.' });
     } catch (error) {
         await conn.rollback();
         if (error.code === 'ER_DUP_ENTRY') {
             return res.status(409).json({ message: 'Ya existe otro usuario con esa cédula.' });
         }
-        logger.error('Error al actualizar usuario:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al actualizar usuario:', error);
         res.status(500).json({ message: 'Error interno del servidor al actualizar usuario.' });
     } finally {
         conn.release();
@@ -332,7 +356,7 @@ async function bajaUsuario(req, res) {
 
     const conn = await db.getConnection();
     try {
-        const [existe] = await conn.execute('SELECT id FROM usuario WHERE id = ? AND fechaBaja IS NULL', [id]);
+        const [existe] = await conn.execute('SELECT id, nomyap, cedula FROM usuario WHERE id = ? AND fechaBaja IS NULL', [id]);
         if (existe.length === 0) {
             return res.status(404).json({ message: 'Usuario no encontrado o ya dado de baja.' });
         }
@@ -352,19 +376,26 @@ async function bajaUsuario(req, res) {
             });
         }
 
+        const eraFisio = await esFisioActivo(conn, id);
+        const eraAdmin = await esAdminActivo(conn, id);
+
         await conn.beginTransaction();
         // Baja en cascada: grupos vigentes del fisio + rol fisio + rol admin + usuario.
-        await bajaGruposDeFisio(conn, id);
+        const gruposDadosDeBaja = await bajaGruposDeFisio(conn, id);
         await desactivarFisio(conn, id);
         await desactivarAdmin(conn, id);
         await conn.execute('UPDATE usuario SET fechaBaja = CURDATE() WHERE id = ?', [id]);
         await conn.commit();
 
+        logger.auditar('USUARIO_BAJA', {
+            idUsuarioAfectado: id, nomyap: existe[0].nomyap, cedula: existe[0].cedula,
+            rolesQueTenia: { fisio: eraFisio, admin: eraAdmin },
+            gruposDadosDeBaja, confirmadoConForce: esForce(req)
+        });
         res.status(200).json({ message: 'Usuario dado de baja exitosamente.' });
     } catch (error) {
         await conn.rollback();
-        logger.error('Error al dar de baja usuario:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al dar de baja usuario:', error);
         res.status(500).json({ message: 'Error interno del servidor al dar de baja usuario.' });
     } finally {
         conn.release();

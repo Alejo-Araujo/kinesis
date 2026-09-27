@@ -7,7 +7,7 @@ de horarios grupales, sesiones (calendario), cuotas mensuales y balance.
 
 - **Backend**: Node.js + Express (`backend/`). MySQL/MariaDB vía `mysql2/promise`
   (pool en `backend/src/db.js`). Auth con JWT (`jsonwebtoken`) + `bcryptjs`.
-  Logs con `winston` (`backend/plugins/logger.plugin.js`). Crons en `backend/src/cron/`.
+  Logs con `winston` (`backend/plugins/logger.plugin.js`, ver "Logs y auditoría"). Crons en `backend/src/cron/`.
 - **Frontend**: HTML + JS vanilla como **módulos ES** (`frontend/js/*.js`), Bootstrap 5.
   El backend sirve el frontend estático y hace fallback SPA a `index.html`.
 - **DB**: base `kinesis` en MySQL local. Node fijado por `.nvmrc`.
@@ -165,6 +165,60 @@ npm run dev      # nodemon (recarga en caliente); o `npm start` para node plano
   JSON malformado → 400; ruta `/api/...` inexistente → 404 JSON.
 - **Paginación**: `limit` se acota a 500 (pacientes y cuotas).
 
+## Logs y auditoría
+
+- **Dónde**: un único directorio, `backend/logs/` (o `LOG_DIR`), rotación diaria:
+  `combined-YYYY-MM-DD.log` (todo, 30 días), `error-YYYY-MM-DD.log` (sólo errores, 90 días),
+  `auditoria-YYYY-MM-DD.log` (sólo acciones de usuarios, 365 días) y `fatal.log` (caídas del
+  proceso). Líneas JSON. `LOG_LEVEL` (default `info`; `debug` para más detalle).
+- **Contexto por request** (`plugins/contexto.plugin.js`, `AsyncLocalStorage`): `server.js` crea
+  `{ requestId, idUsuario, ip }` para cada `/api` (se devuelve en el header `X-Request-Id`) y
+  `authenticateToken` completa el `idUsuario`. Todo log emitido durante el request lleva
+  `requestId` e `idUsuario` sin pasar `req`. El contexto se crea DESPUÉS de `express.json()` (los
+  parsers por streams lo pierden); tras `multer` usar `reanudarContexto`. Crons: `idUsuario: 'sistema'`.
+- **Log de acceso**: una línea por request `/api` (`service: "http"`, `acceso: true`) con
+  método, ruta, status, duración, ip y usuario. 4xx = warn, 5xx = error.
+- **API del logger** (`crearLogger('archivo.js')`): `log/info/warn/error/debug(mensaje, extra)` —
+  `extra` puede ser un `Error` (se registra mensaje + stack), un objeto (va en `detalles`) o un
+  texto. Para errores usar `logger.error('Contexto:', error)`. `auditar(ACCION, detalles, nivel)`
+  registra una acción en `auditoria-*.log`.
+- **Auditoría**: toda acción que modifica datos llama a `logger.auditar` al tener éxito, con
+  nombre `ENTIDAD_ACCION` (p.ej. `PACIENTE_ALTA`, `CUOTA_PAGO_REGISTRADO`, `USUARIO_BAJA`) y en
+  las modificaciones los cambios con `diferencias(antes, despues, camposConValor)`
+  (`utils/auditoria.js`). También se auditan `LOGIN`, `LOGIN_FALLIDO`, `CAMBIO_PASSWORD(_FALLIDO)`,
+  `ACCESO_DENEGADO_NO_ADMIN`, `ACCESO_USUARIO_DADO_DE_BAJA`, `PACIENTE_CONSULTADO` (acceso a datos
+  clínicos), `BALANCE_GENERADO`, `IMAGEN_SUBIDA` y los `CRON_*`.
+- **Nunca loguear**: contraseñas, tokens, contenido de observaciones clínicas (sólo tamaño), ni
+  valores de teléfono/email/fecha de nacimiento (en los cambios se marcan como `"modificado"`).
+- Buscar todo lo que hizo un usuario: `grep '"idUsuario":2' backend/logs/auditoria-*.log`;
+  todo un request: `grep '<requestId>' backend/logs/combined-*.log`.
+
+### Diagnóstico de caídas (`plugins/diagnostico.plugin.js`, activado desde `server.js`)
+
+Contexto: producción se cayó varias veces sin dejar rastro (recursos a 0 y un log de 0 bytes, que
+en realidad es el archivo que crea el proceso NUEVO al arrancar). Para tener evidencia:
+- `instalarManejadoresDeProceso()` va al principio de `server.js`. Registra en **`fatal.log`
+  (escritura sincrónica)**: `ARRANQUE`, señales (`SIGTERM`/`SIGINT`/`SIGQUIT`/`SIGUSR2`→ cierre
+  ordenado de servidor y pool; `SIGHUP` = se cerró la terminal/SSH → se registra y el servidor
+  **sigue corriendo**), `EXCEPCION_NO_CAPTURADA` (con requests en curso; sale con 1),
+  `PROMESA_RECHAZADA_SIN_MANEJAR` (**no** cierra el proceso), `SALIDA` con código, errores de
+  stdout (EPIPE: se apaga el log por consola en vez de caerse) y `report.*.json` de Node ante
+  errores fatales de V8 (heap out of memory), que no pasan por `uncaughtException`.
+- `iniciarDiagnostico({ server, pool, puerto })`: log `ARRANQUE` (pid, node, memoria, límite del
+  contenedor, gestor de procesos, si se lanzó desde una terminal), `LATIDO` cada
+  `DIAG_INTERVALO_MS` (memoria, CPU, event loop, requests/errores/en curso, pool y ping a la base)
+  y alertas `MEMORIA_ALTA`, `EVENT_LOOP_BLOQUEADO`, `BASE_DE_DATOS_NO_RESPONDE`, `POOL_DB_SATURADO`,
+  `REQUESTS_COLGADOS`, `REQUEST_LENTO`. Puerto ocupado → mensaje claro y salida.
+- `backend/logs/estado-proceso.log` queda en `"corriendo"` con el último latido. Si al arrancar
+  sigue así, la ejecución anterior murió sin poder registrar nada (**`CAIDA_NO_REGISTRADA`**:
+  kill -9 / límite de memoria del hosting / reinicio del servidor) y se informa su último latido,
+  memoria y requests en curso. Es la evidencia para presentar al hosting.
+- `db.js`: conexiones perdidas, pool saturado y, al arrancar, versión y límites del MySQL.
+- `backend/nodemon.json` ignora `logs/` y `src/public/`: si nodemon vigila los archivos que escribe
+  el diagnóstico entra en un bucle de reinicios (pasó con un `estado-proceso.json`; por eso el
+  estado usa extensión `.log`). En desarrollo, cada reinicio de nodemon en Windows se ve como
+  `CAIDA_NO_REGISTRADA` (warn, no se escribe en fatal.log): es esperable.
+
 ## Verificar cambios contra la app en local
 
 - Levantar el server (`npm run dev`) y golpear los endpoints con un token JWT firmado
@@ -184,9 +238,10 @@ backend/
     controllers/         # pacientes, auth, agenda, calendario, cuotas, diagnosticos, ...
     routes/              # una ruta por dominio
     middelwares/         # authMiddelware (authenticateToken, authorizeAdmin), asyncHandler
-    utils/               # validaciones.js (fechas, email, teléfono), cuotas.js (cuota del mes)
+    utils/               # validaciones.js, cuotas.js (cuota del mes), auditoria.js (diferencias)
     cron/                # tareas del 1° de mes (generación de cuotas)
-  plugins/logger.plugin.js
+  plugins/               # logger.plugin.js (winston + auditoría), contexto.plugin.js (requestId/usuario)
+  logs/                  # combined-*, error-*, auditoria-*, fatal.log (no versionado)
 frontend/
   index.html
   js/                    # módulos ES: pacientes, agenda, calendario, cuota, ui, login, ...
@@ -209,9 +264,6 @@ frontend/
 - **Usuario sin rol (datos viejos)**: desde 2026-09-26 no se puede crear ni dejar un usuario sin
   rol, pero los que ya existían así (hoy JUAN ANDRADA, id 4) siguen pudiendo loguearse y usar lo
   clínico hasta que se les asigne un rol o se los dé de baja.
-- **Logs**: `crearLogger` (`plugins/logger.plugin.js`) acepta un solo argumento, así que en
-  `logger.error('texto:', error.message)` la causa se pierde; además varios controllers usan un
-  nombre de servicio equivocado. Usar template strings mientras tanto.
 - **Crons**: los scripts de `cron/` no cierran el pool y el proceso no termina solo; el orden entre
   generación de cuotas y baja por deuda importa. Se maneja desde el hosting.
 - Por diseño (confirmado): borrar un nombre de diagnóstico borra los diagnósticos de pacientes dados

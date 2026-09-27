@@ -5,6 +5,7 @@ const router = express.Router();
 const path = require('path');
 const { authenticateToken } = require('../middelwares/authMiddelware.js');
 const crearLogger = require('../../plugins/logger.plugin.js');
+const { reanudarContexto } = require('../../plugins/contexto.plugin.js');
 const logger = crearLogger('uploadRoutes.js');
 
 const MENSAJE_TIPO_INVALIDO = 'Solo se permiten imágenes (jpeg, jpg, png)!';
@@ -47,7 +48,9 @@ const upload = multer({
 
 // Ruta POST para subir una sola imagen
 // Se usa `authenticateToken` para asegurar que solo usuarios autenticados pueden subir
-router.post('/upload/image', authenticateToken, upload.single('image'), (req, res) => {
+// reanudarContexto: multer procesa el archivo por streams y continúa fuera del contexto
+// del request; se re-entra para que los logs lleven el usuario y el requestId.
+router.post('/upload/image', authenticateToken, upload.single('image'), reanudarContexto, (req, res) => {
     // Si llegamos aquí, Multer ya ha procesado el archivo.
     // Si hubo un error en Multer, el middleware de manejo de errores (definido abajo) lo capturará.
     // Esta parte solo se ejecuta si la subida fue exitosa (no hubo errores de Multer).
@@ -62,21 +65,28 @@ router.post('/upload/image', authenticateToken, upload.single('image'), (req, re
     // ¡Asegúrate de que esta URL siempre tenga la barra diagonal!
     const imageUrl = `/upload/image/${req.file.filename}`;
 
+    logger.auditar('IMAGEN_SUBIDA', {
+        archivo: req.file.filename, nombreOriginal: req.file.originalname,
+        tipo: req.file.mimetype, bytes: req.file.size
+    });
+
     // Envía la respuesta con la URL de la imagen. El `return` es crucial aquí.
     return res.json({ url: imageUrl });
 });
 
 router.use((err, req, res, next) => {
+    reanudarContexto(req, res, () => {}); // los errores de multer también llegan fuera del contexto
     if (err instanceof multer.MulterError) {
-        // Error específico de Multer
-        logger.error('Multer Error:', err.message);
+        // Error específico de Multer (p.ej. archivo de más de 5 MB): error del cliente.
+        logger.warn(`Subida de imagen rechazada por multer: ${err.message}`);
         return res.status(400).json({ message: err.message });
     } else if (err && err.message === MENSAJE_TIPO_INVALIDO) {
         // Archivo rechazado por el fileFilter: es un error del cliente, no del servidor.
+        logger.warn('Subida de imagen rechazada: tipo de archivo no permitido.');
         return res.status(400).json({ message: err.message });
     } else if (err) {
         // Otros errores durante la subida
-        logger.error('Error desconocido durante la subida:', err.message);
+        logger.error('Error desconocido durante la subida:', err);
         return res.status(500).json({ message: 'Error interno del servidor al subir la imagen.' });
     }
     next(); // Si no es un error de subida, pasa al siguiente middleware

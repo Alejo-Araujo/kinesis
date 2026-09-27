@@ -1,5 +1,7 @@
 // Generación de la cuota del mes en curso de un paciente a partir de sus grupos vigentes.
 // Lo usan la agenda (agregar paciente a un grupo) y la restauración de grupos.
+const crearLogger = require('../../plugins/logger.plugin.js');
+const logger = crearLogger('utils/cuotas.js');
 
 // Día de corte: desde el 25 la cuota del mes se considera atrasada (ver view_cuota_estado),
 // por eso a partir de ese día no se generan cuotas nuevas al inscribir a un paciente.
@@ -50,6 +52,10 @@ async function generarCuotaDelMesSiCorresponde(conn, idPaciente) {
         'INSERT INTO cuota (idPaciente, mes, anio, monto, montoDescuento) VALUES (?, ?, ?, ?, ?)',
         [idPaciente, hoy.mes, hoy.anio, tarifas[0].monto, tarifas[0].monto]
     );
+    logger.auditar('CUOTA_GENERADA_AUTOMATICA', {
+        idPaciente: parseInt(idPaciente, 10), mes: hoy.mes, anio: hoy.anio,
+        monto: tarifas[0].monto, cantidadGrupos: cantidad
+    });
 }
 
 module.exports = {

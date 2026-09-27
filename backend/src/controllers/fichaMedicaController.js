@@ -37,7 +37,10 @@ async function getPacienteById(req, res) {
 
         // Adjuntar los diagnósticos al objeto del paciente
         paciente.diagnosticos = diagnosticosRows;
-        
+
+        // Acceso a datos clínicos (ficha, edición o selección del paciente): queda registrado quién lo vio.
+        logger.auditar('PACIENTE_CONSULTADO', { idPaciente: paciente.id, nomyap: paciente.nomyap, diagnosticos: diagnosticosRows.length });
+
         res.json(paciente); // Envía el objeto paciente completo con sus diagnósticos
     } catch (error) {
         logger.error('Error al obtener paciente por ID:', error);
@@ -55,7 +58,8 @@ async function updateDiagnosticoObservaciones(req, res) {
     const dom = new JSDOM(sanitizedHtml);
     const images = dom.window.document.querySelectorAll('img');
 
-    const expectedImagePrefix = 'upload/image/'; 
+    const expectedImagePrefix = 'upload/image/';
+    let imagenesRemovidas = 0;
 
     images.forEach(img => {
         let src = img.getAttribute('src');
@@ -67,16 +71,20 @@ async function updateDiagnosticoObservaciones(req, res) {
 
             // Si no tiene el prefijo, se invalida
             if (!src.startsWith(expectedImagePrefix)) {
-                logger.warn(`URL de imagen inválida detectada y removida para diagnosticoEntryId ${diagnosticoEntryId}: ${img.getAttribute('src')}`, {"service":"fichaMedicaController.js","timestamp":new Date().toISOString().slice(0, 19).replace('T', ' ')});
+                logger.warn(`URL de imagen inválida detectada y removida para diagnosticoEntryId ${diagnosticoEntryId}: ${img.getAttribute('src')}`);
                 // Se elimina la imagen
-                img.remove();  
+                img.remove();
+                imagenesRemovidas++;
             }
         }
     });
 
     // Se obtiene el HTML final después de la validación y posible modificación de las imágenes
+    // (no se loguea: es contenido clínico).
     const finalHtml = dom.window.document.body.innerHTML;
-    console.log(finalHtml);
+    const imagenesFinales = dom.window.document.querySelectorAll('img').length;
+    // Buena práctica de JSDOM: cerrar la ventana libera sus recursos en el momento.
+    dom.window.close();
 
 
     if (!diagnosticoEntryId || typeof finalHtml !== 'string') {
@@ -92,6 +100,21 @@ async function updateDiagnosticoObservaciones(req, res) {
         if (result.affectedRows === 0) {
             return res.status(404).json({ message: 'Registro de diagnóstico no encontrado o no se realizaron cambios.' });
         }
+
+        // Auditoría sin el contenido: sólo de qué paciente/diagnóstico y el tamaño.
+        const [info] = await db.execute(
+            `SELECT d.idPaciente, nd.nombre FROM diagnostico d
+             JOIN nombrediagnostico nd ON nd.id = d.idNombreDiagnostico WHERE d.id = ?`,
+            [diagnosticoEntryId]
+        );
+        logger.auditar('OBSERVACIONES_ACTUALIZADAS', {
+            diagnosticoEntryId: parseInt(diagnosticoEntryId, 10),
+            idPaciente: info.length ? info[0].idPaciente : null,
+            diagnostico: info.length ? info[0].nombre : null,
+            caracteres: finalHtml.length,
+            imagenes: imagenesFinales,
+            imagenesRemovidas
+        });
 
         res.json({ message: 'Observaciones actualizadas exitosamente.' });
     } catch (error) {

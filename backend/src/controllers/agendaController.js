@@ -79,8 +79,7 @@ async function getAllHorariosCompletos(req, res){
         
         res.json(processedHorarios);
     } catch (error) {
-        logger.error('Error al obtener los horarios:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al obtener los horarios:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener los horarios.' });
     }
 };
@@ -176,8 +175,7 @@ async function getHorarioByCompositeKey(req, res) {
         
         res.status(200).json(horarioFinal); // Devuelve el objeto horario parseado
     } catch (error) {
-        logger.error('Error al obtener horario por clave compuesta:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al obtener horario por clave compuesta:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener el horario.' });
     }
 }
@@ -186,8 +184,7 @@ async function addHorario(req, res){
 let { diaSemana, horaInicio, horaFin } = req.body;
 
     if (!diaSemana || !horaInicio || !horaFin ) {
-        logger.warn('Intento de crear horario con datos incompletos.');
-        console.log(req.body);
+        logger.warn('Intento de crear horario con datos incompletos.', { diaSemana, horaInicio, horaFin });
         return res.status(400).json({ message: 'Todos los campos son requeridos.' });
     }
 
@@ -202,7 +199,7 @@ let { diaSemana, horaInicio, horaFin } = req.body;
         logger.warn(`Intento de crear horario con hora de inicio inválida: ${horaInicio}`);
         return res.status(400).json({ message: 'El formato de la hora de inicio es inválido.' });
     }
-    
+
     if (!isValidHora(horaFin)) {
         logger.warn(`Intento de crear horario con hora de fin inválida: ${horaFin}`);
         return res.status(400).json({ message: 'El formato de la hora de fin es inválido.' });
@@ -229,18 +226,17 @@ let { diaSemana, horaInicio, horaFin } = req.body;
             [diaSemana, horaInicio, horaFin]
         );
 
-        logger.log(`Horario creado. Dia de semana: ${diaSemana} desde las: ${horaInicio} hasta las: ${horaFin}`);
+        logger.auditar('GRUPO_ALTA', { diaSemana, horaInicio, horaFin });
         res.status(201).json({ message: 'Horario creado exitosamente.'});
 
     }else{
         // Se reactivó un grupo que estaba dado de baja (update, no creación).
-        logger.log(`Horario reactivado. Dia de semana: ${diaSemana} desde las: ${horaInicio} hasta las: ${horaFin}`);
+        logger.auditar('GRUPO_REACTIVACION', { diaSemana, horaInicio, horaFin });
         res.status(200).json({ message: 'Horario creado exitosamente.'});
     }
 
     } catch (error) {
-        logger.error('Error al agregar un horario en la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al agregar un horario en la base de datos:', error);
 
         // 'ER_DUP_ENTRY' se dispara si coniciden las 3 PK con un dato ya ingresado
         if (error.code === 'ER_DUP_ENTRY') {
@@ -447,7 +443,7 @@ let { diaSemana, horaInicio, horaFin } = req.body;
 //             return res.status(409).json({ message: 'El paciente ya se encuentra en este grupo.' });
 //         }
         
-//         logger.error('Error al agregar paciente al grupo en la base de datos:', error.message);
+//         logger.error('Error al agregar paciente al grupo en la base de datos:', error);
 //         logger.error(error.stack);
 
 //         res.status(500).json({ message: 'Error interno del servidor al agregar paciente al grupo.' });
@@ -570,7 +566,7 @@ let { diaSemana, horaInicio, horaFin } = req.body;
 
 //     } catch (error) {
 
-//         logger.error('Error al eliminar paciente del grupo en la base de datos:', error.message);
+//         logger.error('Error al eliminar paciente del grupo en la base de datos:', error);
 //         logger.error(error.stack);
 
 //         res.status(500).json({ message: 'Error interno del servidor al eliminar paciente del grupo.' });
@@ -612,7 +608,7 @@ async function agregarPacienteGrupo(req, res) {
         }
 
         const [paciente] = await db.execute(
-            'SELECT 1 FROM paciente WHERE id = ? AND fechaBaja IS NULL',
+            'SELECT nomyap FROM paciente WHERE id = ? AND fechaBaja IS NULL',
             [idPaciente]
         );
         if (paciente.length === 0) {
@@ -652,14 +648,18 @@ async function agregarPacienteGrupo(req, res) {
         // Si no tiene cuota del mes y es antes del día 25 se genera; si ya tiene, no se toca.
         await generarCuotaDelMesSiCorresponde(db, idPaciente);
 
-        logger.log('Paciente agregado al grupo exitosamente');
+        logger.auditar('GRUPO_PACIENTE_ALTA', {
+            idPaciente: parseInt(idPaciente, 10), nomyap: paciente[0].nomyap,
+            diaSemana, horaInicio, horaFin, reinscripcion: !inscripcionNueva
+        });
         return res.status(inscripcionNueva ? 201 : 200).json({ message: 'Paciente agregado exitosamente.', pacienteId: idPaciente });
 
     } catch (error) {
         if (error.code === 'ER_DUP_ENTRY') {
+            logger.warn(`El paciente ${idPaciente} ya está en el grupo ${diaSemana} ${horaInicio}-${horaFin}.`);
             return res.status(409).json({ message: 'El paciente ya se encuentra en este grupo.' });
         }
-        logger.error('Error al agregar paciente al grupo:', error.message);
+        logger.error('Error al agregar paciente al grupo:', error);
         return res.status(500).json({ message: 'Error interno al agregar paciente al grupo.' });
     }
 }
@@ -687,7 +687,7 @@ async function eliminarPacienteGrupo(req, res) {
         }
 
         // Si ya no está en ningún grupo → desactivar paciente
-        await db.execute(`
+        const [desactivado] = await db.execute(`
             UPDATE paciente p
             SET p.activo = 0
             WHERE p.id = ?
@@ -696,7 +696,10 @@ async function eliminarPacienteGrupo(req, res) {
 
         // La cuota del mes no se toca al sacarlo de un grupo (ni se cancela ni cambia su monto).
 
-        logger.log('Paciente eliminado del grupo exitosamente');
+        logger.auditar('GRUPO_PACIENTE_BAJA', {
+            idPaciente: parseInt(idPaciente, 10), diaSemana, horaInicio, horaFin,
+            quedoSinGrupos: desactivado.affectedRows > 0
+        });
         return res.status(200).json({ message: 'Paciente eliminado exitosamente.', pacienteId: idPaciente });
 
     } catch (error) {
@@ -771,12 +774,12 @@ let { diaSemana, horaInicio, horaFin, idFisio } = req.body;
             VALUES (?, ?, ?, ?, ?)`,
             [diaSemana, horaInicio, horaFin, idFisio, null]
         );
-        logger.log(`Fisioterapeuta agregado al grupo exitosamente`);
+        logger.auditar('GRUPO_FISIO_ALTA', { idFisio: parseInt(idFisio, 10), diaSemana, horaInicio, horaFin, reasignacion: false });
         res.status(201).json({ message: 'Fisioterapeuta agregado exitosamente.', fisioId: idFisio });
         }else{
 
         // Se reactivó una inscripción previa (update, no creación).
-        logger.log(`Fisioterapeuta agregado al grupo exitosamente`);
+        logger.auditar('GRUPO_FISIO_ALTA', { idFisio: parseInt(idFisio, 10), diaSemana, horaInicio, horaFin, reasignacion: true });
         res.status(200).json({ message: 'Fisioterapeuta agregado exitosamente.', fisioId: idFisio });
         }
         
@@ -787,8 +790,7 @@ let { diaSemana, horaInicio, horaFin, idFisio } = req.body;
             return res.status(409).json({ message: 'El fisioterapeuta ya se encuentra en este grupo.' });
         }
         
-        logger.error('Error al agregar fisioterapeuta al grupo en la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al agregar fisioterapeuta al grupo en la base de datos:', error);
 
         res.status(500).json({ message: 'Error interno del servidor al agregar fisioterapeuta al grupo.' });
     }
@@ -798,8 +800,7 @@ async function eliminarFisioGrupo(req, res){
 let { diaSemana, horaInicio, horaFin, idFisio } = req.body;
 
     if (!diaSemana || !horaInicio || !horaFin || !idFisio) {
-        logger.warn('Intento de eliminar fisioterapeuta del grupo con datos incompletos.');
-        console.log(req.body);
+        logger.warn('Intento de eliminar fisioterapeuta del grupo con datos incompletos.', { diaSemana, horaInicio, horaFin, idFisio });
         return res.status(400).json({ message: 'Todos los datos son requeridos' });
     }
 
@@ -822,7 +823,6 @@ let { diaSemana, horaInicio, horaFin, idFisio } = req.body;
 
 
     try {
-        console.log(diaSemana, horaInicio, horaFin, idFisio);
         const [result] = await db.execute(
             `UPDATE grupofisioterapeuta SET
              fechaBaja = CURDATE()
@@ -836,15 +836,14 @@ let { diaSemana, horaInicio, horaFin, idFisio } = req.body;
         res.status(404).json({ message: 'El fisioterapeuta no está asignado a este grupo.' });
         }else{
 
-        logger.log(`Fisioterapeuta eliminado del grupo exitosamente`);
+        logger.auditar('GRUPO_FISIO_BAJA', { idFisio: parseInt(idFisio, 10), diaSemana, horaInicio, horaFin });
         res.status(200).json({ message: 'Fisioterapeuta eliminado exitosamente.', fisioId: idFisio });
         }
         
 
     } catch (error) {
 
-        logger.error('Error al eliminar fisioterapeuta del grupo en la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al eliminar fisioterapeuta del grupo en la base de datos:', error);
 
         res.status(500).json({ message: 'Error interno del servidor al eliminar fisioterapeuta del grupo.' });
     }
@@ -854,8 +853,7 @@ async function eliminarGrupo(req, res){
 let { diaSemana, horaInicio, horaFin } = req.body;
 
     if (!diaSemana || !horaInicio || !horaFin ) {
-        logger.warn('Intento de eliminar grupo con datos incompletos.');
-        console.log(req.body);
+        logger.warn('Intento de eliminar grupo con datos incompletos.', { diaSemana, horaInicio, horaFin });
         return res.status(400).json({ message: 'Todos los datos son requeridos' });
     }
 
@@ -892,15 +890,15 @@ let { diaSemana, horaInicio, horaFin } = req.body;
         );
       
         if(result.affectedRows === 0 ){
+            logger.warn(`Baja del grupo ${diaSemana} ${horaInicio}-${horaFin} rechazada: tiene integrantes o no existe.`);
             return res.status(409).json({ message: 'El grupo tiene pacientes o fisioterapeutas asignados, eliminalos primeros y luego podrás eliminar el grupo.' });
-        }      
+        }
 
-        logger.log(`Grupo eliminado exitosamente`);
+        logger.auditar('GRUPO_BAJA', { diaSemana, horaInicio, horaFin });
         res.status(200).json({ message: 'Grupo eliminado exitosamente.' });
     } catch (error) {
 
-        logger.error('Error al eliminar el grupo en la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al eliminar el grupo en la base de datos:', error);
 
         res.status(500).json({ message: 'Error interno del servidor al eliminar el grupo.' });
     }
@@ -908,7 +906,7 @@ let { diaSemana, horaInicio, horaFin } = req.body;
 
 async function getHorariosForPaciente(req, res) {
     const { pacienteId } = req.query;
-    logger.log(`Solicitud para obtener horarios del paciente con ID: ${pacienteId}`);
+    logger.debug(`Solicitud para obtener horarios del paciente con ID: ${pacienteId}`);
 
     if (!pacienteId) {
         logger.warn('Intento de obtener horarios para paciente sin ID.');
@@ -932,13 +930,12 @@ async function getHorariosForPaciente(req, res) {
             [idPacienteNum]
         );
 
-       logger.log(`Horarios obtenidos exitosamente para el paciente con ID: ${idPacienteNum}`);
+       logger.debug(`Horarios obtenidos para el paciente con ID ${idPacienteNum}: ${rows.length}`);
        res.status(200).json(rows);
 
    } catch (error) {
        
-       logger.error('Error al obtener horarios para el paciente:', error.message);
-       logger.error(error.stack);
+       logger.error('Error al obtener horarios para el paciente:', error);
        res.status(500).json({ message: 'Error interno del servidor al obtener horarios para el paciente.' });
    }
 };

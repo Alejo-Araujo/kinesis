@@ -1,5 +1,6 @@
 const db = require('../db.js');
 const  crearLogger  = require('../../plugins/logger.plugin.js');
+const { ejecutarConContexto } = require('../../plugins/contexto.plugin.js');
 const logger = crearLogger('primeroDelMes.js');
 
 
@@ -7,7 +8,7 @@ async function generarCuotas(){
 
     try {
 
-       await db.execute(
+       const [result] = await db.execute(
             `INSERT INTO cuota (idPaciente, mes, anio, monto, montoDescuento, fechaBaja, fechaPago)
             SELECT
                 t1.idPaciente,
@@ -29,14 +30,17 @@ async function generarCuotas(){
                 c.idPaciente IS NULL`,
         );
 
+        const hoy = new Date();
+        logger.auditar('CRON_CUOTAS_GENERADAS', { mes: hoy.getMonth() + 1, anio: hoy.getFullYear(), cantidad: result.affectedRows });
+
     } catch (error) {
-        logger.error('Error al generar cuotas mensuales:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al generar cuotas mensuales:', error);
     }
 }
 
 
-(async function main() {
+// Corre con usuario "sistema" para que la auditoría distinga las acciones automáticas.
+ejecutarConContexto({ requestId: `cron-cuotas-${Date.now()}`, idUsuario: 'sistema' }, async function main() {
   try {
     await generarCuotas();
     logger.log('Proceso completo.');
@@ -44,4 +48,4 @@ async function generarCuotas(){
     logger.error('Error en proceso principal:', err);
     process.exitCode = 1;
   }
-})();
+});

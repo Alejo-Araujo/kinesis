@@ -1,6 +1,6 @@
 const db = require('../db');
 const crearLogger = require('../../plugins/logger.plugin.js');
-const logger = crearLogger('authController.js');
+const logger = crearLogger('diagnosticosController.js');
 
 
 function isValidNombre(nombre) {
@@ -22,8 +22,7 @@ async function getAllNombresDiagnosticos(req,res){
 
         res.json(rows);
     } catch (error) {
-        logger.error('Error en diagnosticosController.getAllNombresDiagnosticos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error en diagnosticosController.getAllNombresDiagnosticos:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener pacientes.' });
     }
 }
@@ -32,13 +31,12 @@ async function agregarNombreDiagnostico(req,res) {
     let { nombre } = req.body;
 
     if (!nombre) {
-        logger.warn('Intento de crear paciente con datos incompletos.');
-        console.log(req.body);
+        logger.warn('Intento de crear diagnóstico sin nombre.');
         return res.status(400).json({ message: 'El campo nombre no puede estar vacío' });
     }
 
     if (!isValidNombre(nombre)) {
-        logger.warn(`Intento de crear paciente con nombre inválido: ${nombre}`);
+        logger.warn(`Intento de crear diagnóstico con nombre inválido: ${nombre}`);
         return res.status(400).json({ message: 'El nombre no tiene un formato válido (solo letras, espacios, guiones, apóstrofes y tildes, mínimo 2 caracteres).' });
     }
 
@@ -52,17 +50,17 @@ async function agregarNombreDiagnostico(req,res) {
             [nombre]
         );
 
-        logger.log(`Diagnostico creado con ID: ${result.insertId}`);
+        logger.auditar('DIAGNOSTICO_NOMBRE_ALTA', { idNombreDiagnostico: result.insertId, nombre });
         res.status(201).json({ message: 'Diagnostico creado exitosamente.', id: result.insertId });
 
     } catch (error) {
-        logger.error('Error al crear diagnostico en la base de datos:', error.message);
-        logger.error(error.stack);
-
-        // 'ER_DUP_ENTRY' se dispara por el UNIQUE en cedula en la bdd
+        // 'ER_DUP_ENTRY' se dispara por el UNIQUE en el nombre
         if (error.code === 'ER_DUP_ENTRY') {
+            logger.warn(`Alta de diagnóstico rechazada: ya existe "${nombre}".`);
             return res.status(409).json({ message: 'Ya hay un diagnostico con ese nombre.' });
         }
+
+        logger.error('Error al crear diagnostico en la base de datos:', error);
 
         res.status(500).json({ message: 'Error interno del servidor al crear el diagnostico.' });
     }    
@@ -73,8 +71,7 @@ let { nombre } = req.body;
 const id = req.params.id;
 
     if (!nombre) {
-        logger.warn('Intento de modificar diagnostico con datos incompletos.');
-        console.log(req.body);
+        logger.warn(`Intento de modificar el diagnóstico ${id} sin nombre.`);
         return res.status(400).json({ message: 'El nombre es requerido.' });
     }
 
@@ -88,6 +85,8 @@ const id = req.params.id;
     nombre = nombre.toUpperCase();
 
     try {
+        const [previo] = await db.execute('SELECT nombre FROM nombrediagnostico WHERE id = ?', [id]);
+
         const [result] = await db.execute(
             `UPDATE nombrediagnostico SET
              nombre = ?
@@ -99,18 +98,21 @@ const id = req.params.id;
             return res.status(404).json({ message: 'Diagnostico no encontrado o no se realizaron cambios.' });
         }
 
-        logger.log(`Datos del diagnostico con ID: ${id} actualizados correctamente.`);
+        logger.auditar('DIAGNOSTICO_NOMBRE_MODIFICACION', {
+            idNombreDiagnostico: parseInt(id, 10),
+            nombre: { antes: previo.length ? previo[0].nombre : null, despues: nombre }
+        });
         res.status(200).json({ message: 'Datos actualizados exitosamente.', id: id });
 
     } catch (error) {
 
-        // 'ER_DUP_ENTRY' se dispara por el UNIQUE en cedula en la bdd
+        // 'ER_DUP_ENTRY' se dispara por el UNIQUE en el nombre
         if (error.code === 'ER_DUP_ENTRY') {
+            logger.warn(`Modificación del diagnóstico ${id} rechazada: ya existe "${nombre}".`);
             return res.status(409).json({ message: 'Ya hay un diagnostico con ese nombre.' });
         }
-        
-        logger.error('Error al modificar diagnostico en la base de datos:', error.message);
-        logger.error(error.stack);
+
+        logger.error('Error al modificar diagnostico en la base de datos:', error);
 
         res.status(500).json({ message: 'Error interno del servidor al modificar los datos.' });
     }
@@ -138,7 +140,7 @@ async function agregarDiagnostico(req,res){
             return res.status(404).json({ message: 'El paciente no existe o fue dado de baja.' });
         }
 
-        const [nombreDiag] = await db.execute('SELECT 1 FROM nombrediagnostico WHERE id = ?', [idNombreDiagnostico]);
+        const [nombreDiag] = await db.execute('SELECT nombre FROM nombrediagnostico WHERE id = ?', [idNombreDiagnostico]);
         if (nombreDiag.length === 0) {
             return res.status(404).json({ message: 'El diagnóstico seleccionado no existe.' });
         }
@@ -157,12 +159,16 @@ async function agregarDiagnostico(req,res){
             [idNombreDiagnostico, idPaciente]
         );
 
-        logger.log(`Diagnostico creado con ID: ${result.insertId}`);
+        logger.auditar('DIAGNOSTICO_PACIENTE_ALTA', {
+            diagnosticoEntryId: result.insertId,
+            idPaciente: parseInt(idPaciente, 10),
+            idNombreDiagnostico: parseInt(idNombreDiagnostico, 10),
+            diagnostico: nombreDiag[0].nombre
+        });
         res.status(201).json({ message: 'Diagnostico creado exitosamente.', id: result.insertId });
 
     } catch (error) {
-        logger.error('Error al agregar el diagnostico en la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al agregar el diagnostico en la base de datos:', error);
         res.status(500).json({ message: 'Error interno del servidor al agregar el diagnostico.' });
     }    
 }
@@ -177,6 +183,14 @@ async function eliminarDiagnostico(req,res){
     }
 
     try {
+        // Datos previos para la auditoría (se borra junto con sus observaciones).
+        const [previo] = await db.execute(
+            `SELECT d.idPaciente, nd.nombre, CHAR_LENGTH(IFNULL(d.descripcion, '')) AS caracteres
+             FROM diagnostico d JOIN nombrediagnostico nd ON nd.id = d.idNombreDiagnostico
+             WHERE d.id = ?`,
+            [diagnosticoIdNum]
+        );
+
         const [result] = await db.execute(
             `DELETE FROM diagnostico WHERE id = ?`,
             [diagnosticoIdNum]
@@ -187,12 +201,16 @@ async function eliminarDiagnostico(req,res){
             return res.status(404).json({ message: `Diagnóstico con ID ${diagnosticoIdNum} no encontrado.` });
         }
 
-        logger.log(`Diagnostico eliminado con ID: ${idDiagnostico}`);
+        logger.auditar('DIAGNOSTICO_PACIENTE_BAJA', {
+            diagnosticoEntryId: diagnosticoIdNum,
+            idPaciente: previo.length ? previo[0].idPaciente : null,
+            diagnostico: previo.length ? previo[0].nombre : null,
+            caracteresObservacionesBorradas: previo.length ? previo[0].caracteres : 0
+        });
         res.status(204).end();
 
     } catch (error) {
-        logger.error('Error al eliminar el diagnostico en la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al eliminar el diagnostico en la base de datos:', error);
         res.status(500).json({ message: 'Error interno del servidor al eliminar el diagnostico.' });
     }    
 }
@@ -207,10 +225,11 @@ let { id } = req.params;
     }
 
     try {
-        const [existe] = await db.execute('SELECT 1 FROM nombrediagnostico WHERE id = ?', [diagnosticoIdNum]);
+        const [existe] = await db.execute('SELECT nombre FROM nombrediagnostico WHERE id = ?', [diagnosticoIdNum]);
         if (existe.length === 0) {
             return res.status(404).json({ message: 'Diagnóstico no encontrado.' });
         }
+        const nombre = existe[0].nombre;
 
         const [result2] = await db.execute(
             `DELETE FROM diagnostico
@@ -218,7 +237,12 @@ let { id } = req.params;
             [diagnosticoIdNum]
         );
 
-        logger.log(`Registros de diagnósticos asociados a pacientes dados de baja eliminados: ${result2.affectedRows}`);
+        // Borrado de historia clínica de pacientes dados de baja: siempre queda auditado.
+        if (result2.affectedRows > 0) {
+            logger.auditar('DIAGNOSTICOS_PACIENTES_BAJA_ELIMINADOS', {
+                idNombreDiagnostico: diagnosticoIdNum, nombre, cantidad: result2.affectedRows
+            });
+        }
 
         const [result] = await db.execute(
             `DELETE FROM nombrediagnostico WHERE id = ? 
@@ -231,7 +255,7 @@ let { id } = req.params;
             return res.status(409).json({ message: `El diagnóstico esta registrado en la historia clínica de algun paciente.` });
         }
 
-        logger.log(`Nombre diagnostico eliminado con ID: ${id}`);
+        logger.auditar('DIAGNOSTICO_NOMBRE_BAJA', { idNombreDiagnostico: diagnosticoIdNum, nombre });
         res.status(204).end();
 
     } catch (error) {
@@ -240,8 +264,7 @@ let { id } = req.params;
             return res.status(409).json({ message: 'El diagnóstico esta registrado en la historia clínica de algun paciente.' });
         }
 
-        logger.error('Error al eliminar el nombre diagnostico en la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al eliminar el nombre diagnostico en la base de datos:', error);
         res.status(500).json({ message: 'Error interno del servidor al eliminar el nombre diagnostico.' });
     }    
 }

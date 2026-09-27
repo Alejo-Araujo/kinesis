@@ -4,6 +4,7 @@ const crearLogger = require('../../plugins/logger.plugin.js');
 const logger = crearLogger('cuotasController.js');
 const { esTexto, esFechaISOValida } = require('../utils/validaciones.js');
 const { generarCuotaDelMesSiCorresponde } = require('../utils/cuotas.js');
+const { diferencias } = require('../utils/auditoria.js');
 
 const MAX_LIMIT = 500;
 
@@ -132,8 +133,7 @@ async function getAllCuotas(req, res) {
         });
 
     } catch (error) {
-        logger.error('Error al obtener cuotas de la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al obtener cuotas de la base de datos:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener cuotas.' });
     }
 }
@@ -169,8 +169,7 @@ async function getCuota(req, res) {
         res.json(result);
 
     } catch (error) {
-        logger.error('Error al obtener cuota de la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al obtener cuota de la base de datos:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener cuota.' });
     }
 };
@@ -226,21 +225,22 @@ async function addCuota(req, res) {
                  VALUES (?, ?, ?, ?, ?)`,
                 [id, month, year, amount, amountDescuento]
             );
+            logger.auditar('CUOTA_ALTA', { idPaciente: id, mes: month, anio: year, monto: amount, montoDescuento: amountDescuento });
             res.status(201).json({ message: 'Cuota agregada exitosamente.', id: result2.insertId });
 
         } else {
+            logger.auditar('CUOTA_REACTIVACION', { idPaciente: id, mes: month, anio: year, monto: amount, montoDescuento: amountDescuento });
             res.status(200).json({ message: 'Cuota reactivada exitosamente.', id: result.insertId });
         }
 
     } catch (error) {
 
         if (error.code === 'ER_DUP_ENTRY') {
-            logger.warn('Intento de agregar cuota ya existente.');
+            logger.warn(`Intento de agregar una cuota ya existente: paciente ${id}, ${month}/${year}.`);
             return res.status(409).json({ message: 'La cuota ya existe.' });
         }
 
-        logger.error('Error al agregar cuota a la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al agregar cuota a la base de datos:', error);
         res.status(500).json({ message: 'Error interno del servidor al agregar cuota.' });
     }
 };
@@ -281,8 +281,7 @@ async function getMonto(req, res) {
 
 
     } catch (error) {
-        logger.error('Error al obtener monto de la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al obtener monto de la base de datos:', error);
         res.status(500).json({ message: 'Error interno del servidor al obtener monto.' });
     }
 }
@@ -339,8 +338,10 @@ async function registrarPago(req, res) {
     }
 
     try {
+        // Estado previo: sirve para validar y para registrar en auditoría qué cambió.
         const [cuotas] = await db.execute(
-            'SELECT fechaBaja FROM cuota WHERE idPaciente = ? AND mes = ? AND anio = ?',
+            `SELECT fechaBaja, monto, descuento, montoDescuento, fechaPago, metodoPago, descripcion
+             FROM cuota WHERE idPaciente = ? AND mes = ? AND anio = ?`,
             [id, month, year]
         );
         if (cuotas.length === 0) {
@@ -373,6 +374,16 @@ async function registrarPago(req, res) {
             );
         }
 
+        // PAGO: la cuota pasa a tener fecha de pago; si ya estaba paga o sigue sin fecha, es una modificación.
+        const previo = cuotas[0];
+        const accion = fechaPago && previo.fechaPago === null ? 'CUOTA_PAGO_REGISTRADO' : 'CUOTA_PAGO_MODIFICADO';
+        logger.auditar(accion, {
+            idPaciente: id, mes: month, anio: year,
+            cambios: diferencias(previo,
+                { monto: amount, descuento: discount, montoDescuento: amountWithDiscount, fechaPago: fechaPago || null, metodoPago: metodo, descripcion: desc },
+                ['monto', 'descuento', 'montoDescuento', 'fechaPago', 'metodoPago'])
+        });
+
         const gruposSugeridos = await verificarEligibilidadRestauracion(id, month, year);
         res.status(200).json({
             message: 'Pago registrado exitosamente.',
@@ -380,8 +391,7 @@ async function registrarPago(req, res) {
         });
 
     } catch (error) {
-        logger.error('Error al registrar pago en la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al registrar pago en la base de datos:', error);
         res.status(500).json({ message: 'Error interno del servidor al registrar pago.' });
     }
 }
@@ -477,6 +487,8 @@ async function restaurarGrupos(req, res) {
                 [id]
             );
 
+            logger.auditar('GRUPOS_RESTAURADOS', { idPaciente: id, cantidadGrupos: result.affectedRows, fechaBajaCron });
+
             // Si no tiene cuota del mes y es antes del día 25, se genera con los grupos restaurados;
             // si ya tiene cuota del mes, no se modifica.
             await generarCuotaDelMesSiCorresponde(db, id);
@@ -511,22 +523,32 @@ async function bajaCuota(req, res) {
     }
 
     try {
+        const [previo] = await db.execute(
+            'SELECT estado, monto, montoDescuento, fechaPago FROM view_cuota_estado WHERE idPaciente = ? AND mes = ? AND anio = ?',
+            [id, month, year]
+        );
+
         const [result] = await db.execute(
-            `UPDATE cuota SET fechaBaja = CURDATE() 
+            `UPDATE cuota SET fechaBaja = CURDATE()
             WHERE idPaciente = ? AND mes = ? AND anio = ?`,
             [id, month, year]
         );
 
         if (result.affectedRows === 0) {
-            logger.warn('No se encontró cuota para dar de baja.');
+            logger.warn(`No se encontró cuota para dar de baja: paciente ${id}, ${month}/${year}.`);
             return res.status(404).json({ message: 'No se encontró cuota para dar de baja.' });
         }
 
+        const p = previo[0] || {};
+        logger.auditar('CUOTA_BAJA', {
+            idPaciente: id, mes: month, anio: year,
+            estadoPrevio: p.estado ?? null, monto: p.monto ?? null, montoDescuento: p.montoDescuento ?? null,
+            estabaPagada: p.fechaPago != null
+        });
         res.status(200).json({ message: 'Cuota dada de baja exitosamente.' });
 
     } catch (error) {
-        logger.error('Error al dar de baja cuota en la base de datos:', error.message);
-        logger.error(error.stack);
+        logger.error('Error al dar de baja cuota en la base de datos:', error);
         res.status(500).json({ message: 'Error interno del servidor al dar de baja cuota.' });
     }
 }
@@ -596,10 +618,13 @@ async function generarBalance(req, res) {
             [yyyymmDesde, yyyymmHasta]
        );
 
+       logger.auditar('BALANCE_GENERADO', {
+           desde: fechaDesde, hasta: fechaHasta,
+           ingresoTotal: Number(result[0].ingresoTotal), cuotas: Number(result[0].cantTotal)
+       });
        res.status(200).json({ message: 'Balance generado exitosamente.', data: result[0] });
    } catch (error) {
-       logger.error('Error al generar balance en la base de datos:', error.message);
-       logger.error(error.stack);
+       logger.error('Error al generar balance en la base de datos:', error);
        res.status(500).json({ message: 'Error interno del servidor al generar balance.' });
    }
 }
